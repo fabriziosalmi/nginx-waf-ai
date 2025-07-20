@@ -1,0 +1,13 @@
+[
+  {
+    "node_id": "nginx-local",
+    "hostname": "localhost",
+    "ssh_host": "127.0.0.1",
+    "ssh_port": 22,
+    "ssh_username": "nginx",
+    "ssh_key_path": "~/.ssh/id_rsa",
+    "nginx_config_path": "/etc/nginx/conf.d",
+    "nginx_reload_command": "sudo systemctl reload nginx",
+    "api_endpoint": "http://localhost:8080"
+  }
+]

@@ -1,0 +1,82 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Setup and Run Nginx WAF AI",
+            "type": "shell",
+            "command": "./setup.sh && python3 cli.py serve",
+            "group": "build",
+            "isBackground": false,
+            "problemMatcher": []
+        },
+        {
+            "label": "Install Dependencies",
+            "type": "shell", 
+            "command": "python3 -m pip install -r requirements.txt",
+            "group": "build",
+            "isBackground": false,
+            "problemMatcher": []
+        },
+        {
+            "label": "Train ML Model",
+            "type": "shell",
+            "command": "python3 cli.py train -d data/sample_training_data.json -l data/sample_labels.json -o models/waf_model.joblib",
+            "group": "build",
+            "isBackground": false,
+            "dependsOn": "Install Dependencies",
+            "problemMatcher": []
+        },
+        {
+            "label": "Start API Server",
+            "type": "shell",
+            "command": "python3 cli.py serve --debug",
+            "group": "build", 
+            "isBackground": true,
+            "dependsOn": "Train ML Model",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "python3 -m pytest tests/ -v",
+            "group": "test",
+            "isBackground": false,
+            "dependsOn": "Install Dependencies",
+            "problemMatcher": []
+        },
+        {
+            "label": "Format Code",
+            "type": "shell",
+            "command": "python3 -m black src/ tests/ cli.py",
+            "group": "build",
+            "isBackground": false,
+            "problemMatcher": []
+        },
+        {
+            "label": "Check Code Quality",
+            "type": "shell",
+            "command": "python3 -m flake8 src/ tests/ cli.py && python3 -m mypy src/",
+            "group": "test",
+            "isBackground": false,
+            "dependsOn": "Install Dependencies",
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker Build",
+            "type": "shell",
+            "command": "docker-compose build",
+            "group": "build",
+            "isBackground": false,
+            "problemMatcher": []
+        },
+        {
+            "label": "Docker Run",
+            "type": "shell",
+            "command": "docker-compose up -d",
+            "group": "build", 
+            "isBackground": false,
+            "dependsOn": "Docker Build",
+            "problemMatcher": []
+        }
+    ]
+}

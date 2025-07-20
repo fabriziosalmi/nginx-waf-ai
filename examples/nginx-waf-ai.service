@@ -1,0 +1,16 @@
+[Unit]
+Description=Nginx WAF AI Service
+After=network.target
+
+[Service]
+Type=simple
+User=nginx-waf-ai
+WorkingDirectory=/opt/nginx-waf-ai
+ExecStart=/usr/bin/python3 cli.py serve
+Restart=always
+RestartSec=10
+Environment=PYTHONPATH=/opt/nginx-waf-ai
+Environment=WAF_AI_LOG_LEVEL=INFO
+
+[Install]
+WantedBy=multi-user.target

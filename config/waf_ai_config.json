@@ -1,0 +1,20 @@
+{
+  "api_host": "0.0.0.0",
+  "api_port": 8000,
+  "api_debug": false,
+  "ml_model_path": "models/waf_model.joblib",
+  "threat_threshold": -0.5,
+  "confidence_threshold": 0.8,
+  "retrain_interval_hours": 24,
+  "traffic_collection_interval": 1,
+  "max_requests_memory": 10000,
+  "cleanup_interval_minutes": 60,
+  "rule_expiry_hours": 24,
+  "max_active_rules": 100,
+  "rule_optimization_enabled": true,
+  "default_nginx_config_path": "/etc/nginx/conf.d",
+  "default_nginx_reload_command": "sudo systemctl reload nginx",
+  "deployment_timeout_seconds": 30,
+  "log_level": "INFO",
+  "log_file": "logs/waf_ai.log"
+}
