@@ -24,6 +24,7 @@ class HttpRequest:
     source_ip: str
     user_agent: str
     content_length: int
+    node_id: str = 'nginx-node-1'  # Add node_id field with default
     
     def to_dict(self) -> Dict:
         """Convert to dictionary for ML processing"""
@@ -36,6 +37,7 @@ class HttpRequest:
             'source_ip': self.source_ip,
             'user_agent': self.user_agent,
             'content_length': self.content_length,
+            'node_id': self.node_id,
             'has_suspicious_headers': self._check_suspicious_headers(),
             'url_length': len(self.url),
             'contains_sql_patterns': self._check_sql_patterns(),
@@ -108,10 +110,14 @@ class TrafficCollector:
                                     logs = data
                                 
                                 for log_entry in logs:
-                                    request = self._parse_log_entry(log_entry)
+                                    request = self._parse_log_entry(log_entry, node_url)
                                     if request:
                                         self.collected_requests.append(request)
                                         logger.debug(f"Collected request from {node_url}: {request.method} {request.url}")
+                                    else:
+                                        logger.warning(f"Failed to parse log entry: {log_entry}")
+                                
+                                logger.info(f"Collected {len(logs)} log entries from {node_url}, total stored: {len(self.collected_requests)}")
                                 
                                 if logs:
                                     logs_collected = True
@@ -129,18 +135,41 @@ class TrafficCollector:
                 
                 await asyncio.sleep(5)  # Collect every 5 seconds
     
-    def _parse_log_entry(self, log_entry: Dict) -> Optional[HttpRequest]:
+    def _parse_log_entry(self, log_entry: Dict, node_url: str) -> Optional[HttpRequest]:
         """Parse a log entry into an HttpRequest object"""
         try:
+            # Handle timestamp with timezone
+            timestamp_str = log_entry.get('timestamp', datetime.now().isoformat())
+            if '+' in timestamp_str and timestamp_str.endswith('+00:00'):
+                # Convert +00:00 to Z for proper ISO format
+                timestamp_str = timestamp_str.replace('+00:00', 'Z')
+            elif 'T' not in timestamp_str:
+                # If no time component, add it
+                timestamp_str = datetime.now().isoformat()
+            
+            try:
+                timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+            except ValueError:
+                # Fallback to current time if parsing fails
+                timestamp = datetime.now()
+            
+            # Determine node_id from the source URL
+            node_id = 'nginx-node-1'  # default
+            if 'log-server-2' in node_url:
+                node_id = 'nginx-node-2'
+            
+            logger.debug(f"Assigning node_id {node_id} for request from {node_url}")
+            
             return HttpRequest(
-                timestamp=datetime.fromisoformat(log_entry.get('timestamp', datetime.now().isoformat())),
+                timestamp=timestamp,
                 method=log_entry.get('method', 'GET'),
                 url=log_entry.get('url', ''),
                 headers=log_entry.get('headers', {}),
                 body=log_entry.get('body'),
                 source_ip=log_entry.get('source_ip', ''),
                 user_agent=log_entry.get('user_agent', ''),
-                content_length=log_entry.get('content_length', 0)
+                content_length=log_entry.get('content_length', 0),
+                node_id=node_id  # Add node_id field
             )
         except Exception as e:
             logger.error(f"Error parsing log entry: {e}")

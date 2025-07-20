@@ -199,7 +199,7 @@ class MLEngine:
 class RealTimeProcessor:
     """Processes requests in real-time and triggers WAF rule generation"""
     
-    def __init__(self, ml_engine: MLEngine, threat_threshold: float = -0.5):
+    def __init__(self, ml_engine: MLEngine, threat_threshold: float = 0.1):
         self.ml_engine = ml_engine
         self.threat_threshold = threat_threshold
         self.recent_threats = []
@@ -211,10 +211,10 @@ class RealTimeProcessor:
         
         predictions = self.ml_engine.predict_threats(requests)
         
-        # Filter high-threat predictions
+        # Filter high-threat predictions (more aggressive thresholds)
         threats = [
             pred for pred in predictions 
-            if pred.threat_score < self.threat_threshold or pred.confidence > 0.8
+            if pred.threat_score < 0.2 or pred.confidence > 0.3 or pred.threat_type != 'normal'
         ]
         
         self.recent_threats.extend(threats)
