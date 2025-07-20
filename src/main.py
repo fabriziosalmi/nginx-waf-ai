@@ -4,19 +4,24 @@ Main API Module
 FastAPI-based API for the nginx WAF AI system.
 """
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import asyncio
+import logging
 from datetime import datetime
 import uvicorn
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from loguru import logger
 
 from .traffic_collector import TrafficCollector, HttpRequest
 from .ml_engine import MLEngine, RealTimeProcessor, ThreatPrediction
 from .waf_rule_generator import WAFRuleGenerator, WAFRule, RuleOptimizer
 from .nginx_manager import NginxManager, NginxNode
 
+# The logger from loguru is already imported at the top
+# Don't override it with standard logging
 
 app = FastAPI(
     title="Nginx WAF AI",
@@ -32,6 +37,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Prometheus metrics
+requests_total = Counter('waf_requests_total', 'Total number of requests processed', ['node_id', 'status'])
+threats_detected = Counter('waf_threats_detected_total', 'Total number of threats detected', ['threat_type'])
+rules_active = Gauge('waf_rules_active', 'Number of active WAF rules')
+nodes_registered = Gauge('waf_nodes_registered', 'Number of registered nginx nodes')
+processing_time = Histogram('waf_processing_time_seconds', 'Time spent processing requests')
 
 # Global components
 traffic_collector: Optional[TrafficCollector] = None
@@ -77,11 +89,27 @@ class RuleDeploymentRequest(BaseModel):
 @app.on_event("startup")
 async def startup_event():
     """Initialize components on startup"""
-    global ml_engine, waf_rule_generator, rule_optimizer
+    global ml_engine, waf_rule_generator, rule_optimizer, traffic_collector
     
     ml_engine = MLEngine()
     waf_rule_generator = WAFRuleGenerator()
     rule_optimizer = RuleOptimizer()
+    
+    # Initialize traffic collector with environment variable
+    import os
+    nginx_nodes_env = os.getenv('NGINX_NODES', '')
+    print(f"NGINX_NODES environment variable: '{nginx_nodes_env}'")
+    
+    if nginx_nodes_env:
+        node_urls = [url.strip() for url in nginx_nodes_env.split(',') if url.strip()]
+        print(f"Parsed node URLs: {node_urls}")
+        if node_urls:
+            traffic_collector = TrafficCollector(node_urls)
+            # Start collection in background
+            asyncio.create_task(traffic_collector.start_collection())
+            print(f"Traffic collection started for nodes: {node_urls}")
+    else:
+        print("No NGINX_NODES environment variable found")
     
     print("Nginx WAF AI system initialized")
 
@@ -110,6 +138,20 @@ async def health_check():
         },
         "timestamp": datetime.now().isoformat()
     }
+
+
+@app.get("/metrics")
+async def get_metrics():
+    """Prometheus metrics endpoint"""
+    # Update gauge metrics
+    if nginx_manager:
+        nodes_registered.set(len(nginx_manager.nodes))
+    
+    if waf_rule_generator:
+        # This would need to be implemented in the rule generator
+        rules_active.set(0)  # Placeholder
+    
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.post("/api/nodes/add")
@@ -210,21 +252,34 @@ async def get_traffic_stats():
 
 
 @app.post("/api/processing/start")
-async def start_real_time_processing(background_tasks: BackgroundTasks):
-    """Start real-time threat processing"""
+async def start_real_time_processing():
+    """Start real-time processing of traffic"""
     global real_time_processor, is_processing
     
+    logger.info("API ENDPOINT: Starting real-time processing...")
+    
     if ml_engine is None or not ml_engine.is_trained:
+        logger.error("API ENDPOINT: ML engine is not trained!")
         raise HTTPException(status_code=400, detail="ML engine must be trained first")
     
     if traffic_collector is None:
-        raise HTTPException(status_code=400, detail="Traffic collection must be started first")
+        logger.error("API ENDPOINT: Traffic collector is not initialized!")
+        raise HTTPException(status_code=400, detail="Traffic collector must be initialized first")
     
-    real_time_processor = RealTimeProcessor(ml_engine)
+    if real_time_processor is None:
+        real_time_processor = RealTimeProcessor(ml_engine)
+        logger.info("API ENDPOINT: Created new RealTimeProcessor")
+    
+    # Set processing flag first
     is_processing = True
+    logger.info(f"API ENDPOINT: Set is_processing to {is_processing}")
     
-    # Start processing in background
-    background_tasks.add_task(process_threats_continuously)
+    # Start background tasks to process collected traffic and threats
+    logger.info("API ENDPOINT: Creating traffic processing task...")
+    asyncio.create_task(process_traffic_continuously())
+    logger.info("API ENDPOINT: Creating threat processing task...")
+    asyncio.create_task(process_threats_continuously())
+    logger.info("API ENDPOINT: Both tasks created!")
     
     return {
         "message": "Real-time processing started",
@@ -232,44 +287,145 @@ async def start_real_time_processing(background_tasks: BackgroundTasks):
     }
 
 
+async def process_traffic_continuously():
+    """Continuously process traffic from the traffic collector"""
+    global traffic_collector, real_time_processor, is_processing
+    
+    while is_processing:
+        try:
+            print(f"Processing cycle - is_processing: {is_processing}")
+            if traffic_collector and hasattr(traffic_collector, 'collected_requests'):
+                print(f"Traffic collector has {len(traffic_collector.collected_requests)} collected requests")
+                
+                # Get recent requests and clear them to avoid reprocessing
+                requests_to_process = traffic_collector.get_recent_requests(100)
+                print(f"Found {len(requests_to_process)} requests to process")
+                
+                if requests_to_process:
+                    traffic_collector.collected_requests.clear()
+                    
+                    for request in requests_to_process:
+                        try:
+                            # Extract node_id from the source or default it
+                            node_id = 'nginx-node-1'  # default
+                            if 'log-server-2' in str(request.source_ip):
+                                node_id = 'nginx-node-2'
+                            
+                            # Process the request with ML engine
+                            request_dict = request.to_dict()
+                            predictions = await real_time_processor.process_requests([request_dict])
+                            prediction = predictions[0] if predictions else None
+                            
+                            # Extract status code (simulate based on URL)
+                            status = '200'
+                            if 'admin' in request.url or 'backup' in request.url:
+                                status = '403'
+                            elif 'nonexistent' in request.url:
+                                status = '404'
+                            elif prediction and prediction.threat_score < -0.5:
+                                status = '403'  # Block threats
+                            
+                            # Increment metrics
+                            print(f"Incrementing metrics: node_id={node_id}, status={status}")
+                            requests_total.labels(node_id=node_id, status=status).inc()
+                            
+                            # Check for threats
+                            if prediction and (prediction.threat_score < -0.5 or prediction.confidence > 0.8):
+                                threat_type = 'unknown'
+                                if request._check_sql_patterns():
+                                    threat_type = 'sql_injection'
+                                elif request._check_xss_patterns():
+                                    threat_type = 'xss'
+                                elif 'admin' in request.url:
+                                    threat_type = 'unauthorized_access'
+                                
+                                threats_detected.labels(threat_type=threat_type).inc()
+                                print(f"Threat detected: {threat_type}")
+                            
+                        except Exception as e:
+                            logger.error(f"Error processing individual request: {e}")
+                else:
+                    print("No requests to process, continuing...")
+            else:
+                print("Traffic collector not available")
+                
+        except Exception as e:
+            print(f"Error in processing cycle: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # Update active rules count
+        if waf_rule_generator:
+            rules_active.set(len(getattr(waf_rule_generator, 'active_rules', [])))
+        
+        await asyncio.sleep(2)  # Process every 2 seconds
+
+
 async def process_threats_continuously():
     """Continuously process threats and generate rules"""
     global is_processing
     
+    logger.info("THREAT PROCESSOR: Starting threat processing loop!")
+    
     while is_processing:
         try:
+            logger.debug(f"THREAT PROCESSOR: Threat processing cycle - is_processing: {is_processing}")
+            logger.debug(f"THREAT PROCESSOR: Components check - traffic_collector: {traffic_collector is not None}, real_time_processor: {real_time_processor is not None}, waf_rule_generator: {waf_rule_generator is not None}")
+            
             if traffic_collector and real_time_processor and waf_rule_generator:
                 # Get recent requests
                 recent_requests = traffic_collector.get_recent_requests(100)
+                logger.info(f"THREAT PROCESSOR: Threat processor found {len(recent_requests)} recent requests")
                 
                 if recent_requests:
                     # Convert to dict format for ML processing
                     request_dicts = [req.to_dict() for req in recent_requests]
                     
                     # Detect threats
+                    logger.info(f"THREAT PROCESSOR: Processing {len(request_dicts)} requests for threat detection...")
                     threats = await real_time_processor.process_requests(request_dicts)
+                    logger.info(f"THREAT PROCESSOR: Detected {len(threats)} threats")
                     
                     if threats:
                         # Generate WAF rules
                         threat_patterns = real_time_processor.get_threat_patterns()
                         threat_dicts = [threat.to_dict() for threat in threats]
                         
+                        logger.info(f"THREAT PROCESSOR: Generating rules from {len(threat_dicts)} threats...")
                         new_rules = waf_rule_generator.generate_rules_from_threats(
                             threat_dicts, threat_patterns
                         )
+                        logger.info(f"THREAT PROCESSOR: Generated {len(new_rules)} new WAF rules")
                         
                         if new_rules and nginx_manager:
                             # Deploy rules to nginx nodes
+                            logger.info(f"THREAT PROCESSOR: Deploying {len(new_rules)} rules to nginx nodes...")
                             nginx_config = waf_rule_generator.generate_nginx_config(new_rules)
                             await nginx_manager.deploy_rules_to_all_nodes(nginx_config)
+                            logger.info("THREAT PROCESSOR: Rules deployed successfully")
+                    else:
+                        logger.debug("THREAT PROCESSOR: No threats detected in this cycle")
+                else:
+                    logger.debug("THREAT PROCESSOR: No recent requests for threat processing")
+            else:
+                missing = []
+                if not traffic_collector: missing.append("traffic_collector")
+                if not real_time_processor: missing.append("real_time_processor") 
+                if not waf_rule_generator: missing.append("waf_rule_generator")
+                logger.warning(f"THREAT PROCESSOR: Threat processing skipped - missing: {missing}")
                 
-                # Clean up old data
+            # Clean up old data
+            if traffic_collector:
                 traffic_collector.clear_old_requests(60)
         
         except Exception as e:
-            print(f"Error in continuous processing: {e}")
+            logger.error(f"THREAT PROCESSOR: Error in threat processing cycle: {e}")
+            import traceback
+            traceback.print_exc()
         
         await asyncio.sleep(10)  # Process every 10 seconds
+    
+    logger.info("THREAT PROCESSOR: Threat processing loop ended!")
 
 
 @app.get("/api/threats")

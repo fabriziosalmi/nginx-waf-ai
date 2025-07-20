@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nginx Node 1 - WAF AI Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }
+        .info { background: #ecf0f1; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .api-list { background: #e8f6f3; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .security { background: #fdf2e9; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        a { color: #3498db; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { background: #f8f9fa; padding: 2px 5px; border-radius: 3px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ Nginx Node 1 - WAF AI Demo</h1>
+        
+        <div class="info">
+            <h3>ℹ️ Server Information</h3>
+            <ul>
+                <li><strong>Node ID:</strong> nginx-node-1</li>
+                <li><strong>Purpose:</strong> Demonstration web server for WAF AI testing</li>
+                <li><strong>Port:</strong> 8081 (external)</li>
+                <li><strong>WAF Status:</strong> <span style="color: green;">Protected</span></li>
+            </ul>
+        </div>
+
+        <div class="api-list">
+            <h3>🔗 Available API Endpoints</h3>
+            <ul>
+                <li><a href="/api/users">GET /api/users</a> - List users</li>
+                <li><a href="/api/login">GET /api/login</a> - Login endpoint</li>
+                <li><a href="/api/search">GET /api/search</a> - Search functionality</li>
+                <li><a href="/admin/">GET /admin/</a> - Admin panel (restricted)</li>
+            </ul>
+        </div>
+
+        <div class="security">
+            <h3>🔒 Security Features</h3>
+            <ul>
+                <li><strong>Rate Limiting:</strong> 10 requests/second (general), 5 requests/second (API)</li>
+                <li><strong>WAF Rules:</strong> AI-generated rules applied dynamically</li>
+                <li><strong>Security Headers:</strong> XSS protection, content type options, frame options</li>
+                <li><strong>Admin Protection:</strong> Enhanced security for /admin/ paths</li>
+                <li><strong>File Blocking:</strong> Sensitive files (.env, .git, etc.) blocked</li>
+            </ul>
+        </div>
+
+        <h3>🧪 Testing Commands</h3>
+        <p>Test this server with various requests:</p>
+        <pre><code># Normal request
+curl http://localhost:8081/
+
+# API request
+curl http://localhost:8081/api/users
+
+# Potential SQL injection (will be detected)
+curl "http://localhost:8081/api/search?q=test' OR 1=1--"
+
+# XSS attempt (will be detected)
+curl "http://localhost:8081/search?q=&lt;script&gt;alert('xss')&lt;/script&gt;"
+
+# Admin access
+curl http://localhost:8081/admin/</code></pre>
+
+        <p style="margin-top: 30px; text-align: center; color: #7f8c8d;">
+            This server is monitored by the nginx WAF AI system for threat detection and automatic rule generation.
+        </p>
+    </div>
+</body>
+</html>

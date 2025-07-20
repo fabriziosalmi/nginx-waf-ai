@@ -86,19 +86,48 @@ class TrafficCollector:
         async with httpx.AsyncClient() as client:
             while self.is_collecting:
                 try:
-                    # This would typically connect to nginx access logs or monitoring endpoint
-                    response = await client.get(f"{node_url}/api/traffic-logs")
-                    if response.status_code == 200:
-                        logs = response.json()
-                        for log_entry in logs:
-                            request = self._parse_log_entry(log_entry)
-                            if request:
-                                self.collected_requests.append(request)
-                                logger.debug(f"Collected request from {node_url}: {request.method} {request.url}")
+                    # Try different endpoint paths
+                    endpoints = [
+                        f"{node_url}/api/logs",
+                        f"{node_url}/api/traffic-logs", 
+                        f"{node_url}"
+                    ]
+                    
+                    logs_collected = False
+                    for endpoint in endpoints:
+                        try:
+                            response = await client.get(endpoint, timeout=5.0)
+                            if response.status_code == 200:
+                                data = response.json()
+                                
+                                # Handle different response formats
+                                logs = []
+                                if isinstance(data, dict):
+                                    logs = data.get('logs', data.get('data', []))
+                                elif isinstance(data, list):
+                                    logs = data
+                                
+                                for log_entry in logs:
+                                    request = self._parse_log_entry(log_entry)
+                                    if request:
+                                        self.collected_requests.append(request)
+                                        logger.debug(f"Collected request from {node_url}: {request.method} {request.url}")
+                                
+                                if logs:
+                                    logs_collected = True
+                                    break
+                                    
+                        except Exception as e:
+                            logger.debug(f"Endpoint {endpoint} failed: {e}")
+                            continue
+                    
+                    if not logs_collected:
+                        logger.warning(f"No logs collected from {node_url}")
+                        
                 except Exception as e:
                     logger.error(f"Error collecting from {node_url}: {e}")
                 
-                await asyncio.sleep(1)  # Collect every second
+                await asyncio.sleep(5)  # Collect every 5 seconds
     
     def _parse_log_entry(self, log_entry: Dict) -> Optional[HttpRequest]:
         """Parse a log entry into an HttpRequest object"""

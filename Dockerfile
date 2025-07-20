@@ -14,6 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY src/ src/
 COPY cli.py .
+COPY run_server.py .
 
 # Create directories for models, logs, and config
 RUN mkdir -p models logs config data

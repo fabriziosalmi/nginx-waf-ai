@@ -1,0 +1,51 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: nginx-access-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx-logs
+          node_id: nginx-node-1
+          log_type: access
+          __path__: /var/log/nginx/access.log
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<remote_addr>\S+) - (?P<remote_user>\S+) \[(?P<time_local>[^\]]+)\] "(?P<method>\S+) (?P<request_uri>\S+) (?P<server_protocol>\S+)" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)" (?P<request_time>\S+) (?P<upstream_response_time>\S+) (?P<request_length>\d+) (?P<bytes_sent>\d+)'
+      - labels:
+          remote_addr:
+          method:
+          status:
+          request_uri:
+          http_user_agent:
+      - timestamp:
+          source: time_local
+          format: 02/Jan/2006:15:04:05 -0700
+
+  - job_name: nginx-error-logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx-logs
+          node_id: nginx-node-1
+          log_type: error
+          __path__: /var/log/nginx/error.log
+    pipeline_stages:
+      - regex:
+          expression: '^(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) \[(?P<level>\w+)\] (?P<pid>\d+)#(?P<tid>\d+): (?P<message>.*)'
+      - labels:
+          level:
+          pid:
+      - timestamp:
+          source: timestamp
+          format: 2006/01/02 15:04:05

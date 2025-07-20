@@ -1,40 +1,198 @@
 version: '3.8'
 
 services:
-  nginx-waf-ai:
-    build: .
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./config:/app/config
-      - ./models:/app/models
-      - ./logs:/app/logs
-      - ./data:/app/data
-      - ~/.ssh:/root/.ssh:ro  # SSH keys for nginx node access
-    environment:
-      - WAF_AI_HOST=0.0.0.0
-      - WAF_AI_PORT=8000
-      - WAF_AI_LOG_LEVEL=INFO
-      - WAF_AI_MODEL_PATH=/app/models/waf_model.joblib
-    restart: unless-stopped
-    
+  # Redis for caching and session storage
   redis:
     image: redis:7-alpine
+    container_name: waf-redis
     ports:
       - "6379:6379"
-    restart: unless-stopped
-    
-  nginx-example:
-    image: nginx:alpine
-    ports:
-      - "8080:80"
     volumes:
-      - ./examples/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./examples/waf_rules:/etc/nginx/conf.d
-    restart: unless-stopped
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Main WAF AI API Service
+  waf-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: waf-api
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - LOG_LEVEL=INFO
+      - NGINX_NODES=http://log-server-1:8080,http://log-server-2:8080
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
     depends_on:
-      - nginx-waf-ai
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    command: ["python", "run_server.py"]
+
+  # Nginx Node 1 - Simulates a production web server
+  nginx-node-1:
+    image: nginx:alpine
+    container_name: nginx-node-1
+    ports:
+      - "8081:80"
+    volumes:
+      - ./docker/nginx-node-1/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx-node-1/default.conf:/etc/nginx/conf.d/default.conf
+      - ./docker/nginx-node-1/html:/usr/share/nginx/html
+      - ./docker/nginx-node-1/logs:/var/log/nginx
+      - ./docker/shared/waf-rules:/etc/nginx/waf-rules
+    depends_on:
+      - log-server-1
+    restart: unless-stopped
+
+  # Nginx Node 2 - Another production web server
+  nginx-node-2:
+    image: nginx:alpine
+    container_name: nginx-node-2
+    ports:
+      - "8082:80"
+    volumes:
+      - ./docker/nginx-node-2/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx-node-2/default.conf:/etc/nginx/conf.d/default.conf
+      - ./docker/nginx-node-2/html:/usr/share/nginx/html
+      - ./docker/nginx-node-2/logs:/var/log/nginx
+      - ./docker/shared/waf-rules:/etc/nginx/waf-rules
+    depends_on:
+      - log-server-2
+    restart: unless-stopped
+
+  # Log server for nginx-node-1 (provides API for traffic logs)
+  log-server-1:
+    build:
+      context: ./docker/log-server
+      dockerfile: Dockerfile
+    container_name: log-server-1
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ID=nginx-node-1
+      - LOG_PATH=/logs/access.log
+    volumes:
+      - ./docker/nginx-node-1/logs:/logs
+    restart: unless-stopped
+
+  # Log server for nginx-node-2
+  log-server-2:
+    build:
+      context: ./docker/log-server
+      dockerfile: Dockerfile
+    container_name: log-server-2
+    ports:
+      - "8083:8080"
+    environment:
+      - NODE_ID=nginx-node-2
+      - LOG_PATH=/logs/access.log
+    volumes:
+      - ./docker/nginx-node-2/logs:/logs
+    restart: unless-stopped
+
+  # Traffic Generator - Simulates real user traffic and attacks
+  traffic-generator:
+    build:
+      context: ./docker/traffic-generator
+      dockerfile: Dockerfile
+    container_name: traffic-generator
+    environment:
+      - TARGET_NODES=http://nginx-node-1,http://nginx-node-2
+      - ATTACK_PROBABILITY=0.1  # 10% of requests will be malicious
+      - REQUEST_RATE=5  # requests per second
+    depends_on:
+      - nginx-node-1
+      - nginx-node-2
+    restart: unless-stopped
+
+  # Monitoring with Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: waf-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: waf-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=waf-admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+
+  # Loki for log aggregation
+  loki:
+    image: grafana/loki:latest
+    container_name: waf-loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - loki_data:/loki
+      - ./docker/loki/loki-config.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+
+  # Promtail for log shipping from nginx nodes
+  promtail-node-1:
+    image: grafana/promtail:latest
+    container_name: promtail-node-1
+    volumes:
+      - ./docker/nginx-node-1/logs:/var/log/nginx:ro
+      - ./docker/promtail/promtail-node-1.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+  promtail-node-2:
+    image: grafana/promtail:latest
+    container_name: promtail-node-2
+    volumes:
+      - ./docker/nginx-node-2/logs:/var/log/nginx:ro
+      - ./docker/promtail/promtail-node-2.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
 
 networks:
   default:
-    name: nginx-waf-ai-network
+    name: waf-network
