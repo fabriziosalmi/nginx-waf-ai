@@ -3,3 +3,5 @@ logs/
 .venv/
 __pycache__/
 *.pyc
+docker/nginx-node-1/logs/
+docker/nginx-node-2/logs/
