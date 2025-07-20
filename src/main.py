@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import List, Dict, Optional, Any
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Response, Depends, status, Request
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Response, Depends, status, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPBearer
@@ -427,9 +427,9 @@ async def startup_components():
             
             # Register fallback strategies for critical components
             logger.info("Registering fallback strategies...")
-            degradation_manager.register_dependency('ml_engine', 'traffic_analysis', 'static_rules')
-            degradation_manager.register_dependency('nginx_manager', 'config_deployment', 'manual_config')
-            degradation_manager.register_dependency('traffic_collector', 'real_time_monitoring', 'log_based')
+            degradation_manager.register_feature_dependency('traffic_analysis', ['ml_engine'])
+            degradation_manager.register_feature_dependency('config_deployment', ['nginx_manager'])
+            degradation_manager.register_feature_dependency('real_time_monitoring', ['traffic_collector'])
             logger.info("Fallback strategies registered successfully")
     
     except Exception as e:
@@ -602,7 +602,7 @@ async def get_security_stats(current_user: TokenData = require_admin()):
 
 @app.post("/api/security/unblock-ip")
 async def unblock_ip(
-    ip_address: str,
+    ip_address: str = Query(..., description="IP address to unblock"),
     current_user: TokenData = require_admin()
 ):
     """Unblock an IP address (admin only)"""
@@ -765,7 +765,7 @@ async def test_prediction(current_user: TokenData = require_operator()):
                 'contains_sql_patterns': True,
                 'contains_xss_patterns': False,
                 'method': 'GET',
-                'timestamp': '2025-01-20T15:30:00'
+                'timestamp': '2025-01-20T15:30:00Z'
             },
             {
                 'url_length': 25,
@@ -776,7 +776,7 @@ async def test_prediction(current_user: TokenData = require_operator()):
                 'contains_sql_patterns': False,
                 'contains_xss_patterns': True,
                 'method': 'GET',
-                'timestamp': '2025-01-20T15:30:00'
+                'timestamp': '2025-01-20T15:30:00Z'
             },
             {
                 'url_length': 15,
@@ -787,7 +787,7 @@ async def test_prediction(current_user: TokenData = require_operator()):
                 'contains_sql_patterns': False,
                 'contains_xss_patterns': False,
                 'method': 'GET',
-                'timestamp': '2025-01-20T15:30:00'
+                'timestamp': '2025-01-20T15:30:00Z'
             }
         ]
         
@@ -1517,39 +1517,6 @@ async def process_traffic_continuously():
             await asyncio.sleep(5)  # Wait longer on error
     
     logger.info("Traffic processing stopped")
-
-
-async def process_threats_continuously():
-    """Continuously process detected threats and generate rules"""
-    global real_time_processor, waf_rule_generator, is_processing
-    
-    logger.info("Starting continuous threat processing...")
-    
-    while is_processing:
-        try:
-            if real_time_processor and waf_rule_generator:
-                # Get recent threats
-                recent_threats = real_time_processor.get_recent_threats(limit=50)
-                
-                if recent_threats:
-                    logger.debug(f"Processing {len(recent_threats)} recent threats for rule generation")
-                    
-                    # Generate rules based on threats
-                    new_rules = waf_rule_generator.generate_rules_from_threats(recent_threats)
-                    
-                    if new_rules:
-                        logger.info(f"Generated {len(new_rules)} new WAF rules")
-                        # Update active rules count metric
-                        rules_active.set(len(waf_rule_generator.get_active_rules()))
-            
-            # Sleep between threat processing cycles
-            await asyncio.sleep(10)
-            
-        except Exception as e:
-            logger.error(f"Error in threat processing loop: {e}")
-            await asyncio.sleep(30)  # Wait longer on error
-    
-    logger.info("Threat processing stopped")
 
 
 # ============= TLS/HTTPS CONFIGURATION =============

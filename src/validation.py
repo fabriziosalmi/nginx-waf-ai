@@ -62,6 +62,7 @@ class SecureNginxNodeModel(BaseModel):
     ssh_key_path: str = Field(..., min_length=1, max_length=500)
     nginx_config_path: str = Field(..., min_length=1, max_length=500)
     nginx_reload_command: str = Field(default="sudo systemctl reload nginx", max_length=200)
+    api_endpoint: str = Field(..., min_length=1, max_length=500)  # Added missing field
     
     @validator('hostname')
     def validate_hostname(cls, v):
@@ -95,6 +96,13 @@ class SecureNginxNodeModel(BaseModel):
             # Prevent directory traversal
             if '..' in v:
                 raise ValueError('SSH key path cannot contain ".."')
+        return v
+    
+    @validator('api_endpoint')
+    def validate_api_endpoint(cls, v):
+        # Validate URL format
+        if not (v.startswith('http://') or v.startswith('https://')):
+            raise ValueError('API endpoint must be a valid HTTP/HTTPS URL')
         return v
     
     @validator('nginx_config_path')

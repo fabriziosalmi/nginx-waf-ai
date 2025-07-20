@@ -33,6 +33,7 @@ class EndpointTester:
             "ssh_host": "192.168.1.100",
             "ssh_port": 22,
             "ssh_username": "nginx",
+            "ssh_key_path": "/home/nginx/.ssh/id_rsa",  # Added required field
             "nginx_config_path": "/etc/nginx/conf.d",
             "nginx_reload_command": "sudo systemctl reload nginx",
             "api_endpoint": "http://192.168.1.100:8080"
@@ -41,6 +42,10 @@ class EndpointTester:
         self.test_training_data = {
             "training_data": [
                 {
+                    "timestamp": "2024-01-01T00:00:00Z",
+                    "url": "/admin/login?user=admin' OR 1=1--",
+                    "source_ip": "192.168.1.100",
+                    "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
                     "url_length": 30,
                     "body_length": 0,
                     "headers_count": 5,
@@ -51,6 +56,10 @@ class EndpointTester:
                     "method": "GET"
                 },
                 {
+                    "timestamp": "2024-01-01T00:01:00Z", 
+                    "url": "/search?q=<script>alert('xss')</script>",
+                    "source_ip": "192.168.1.101",
+                    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
                     "url_length": 25,
                     "body_length": 0,
                     "headers_count": 5,
@@ -61,7 +70,7 @@ class EndpointTester:
                     "method": "GET"
                 }
             ],
-            "labels": [1, 1]  # Both are threats
+            "labels": ["sql_injection", "xss_attack"]  # Changed to specific types
         }
         
     async def log_result(self, test_name: str, endpoint: str, method: str, 
@@ -218,7 +227,7 @@ class EndpointTester:
         try:
             new_user_data = {
                 "username": "test_user_api",
-                "password": "test123",
+                "password": "TestPass123!",  # Added uppercase letter and special char
                 "roles": ["viewer"]
             }
             response = await self.make_request("POST", "/auth/users", json_data=new_user_data)
@@ -485,7 +494,19 @@ class EndpointTester:
         
         # Test deploy rules
         try:
-            deploy_data = {"node_ids": ["test-node-api"], "validate_before_deploy": True}
+            deploy_data = {
+                "node_ids": ["test-node-api"], 
+                "validate_before_deploy": True,
+                "rules": [
+                    {
+                        "rule_id": "test_rule_1",
+                        "pattern": ".*admin.*",
+                        "action": "block",
+                        "priority": 100,
+                        "description": "Block admin access attempts"
+                    }
+                ]
+            }
             response = await self.make_request("POST", "/api/rules/deploy", json_data=deploy_data)
             if response.status_code == 200:
                 await self.log_result(
@@ -538,7 +559,6 @@ class EndpointTester:
         
         # Test unblock IP
         try:
-            unblock_data = {"ip_address": "192.168.1.100"}
             response = await self.make_request("POST", "/api/security/unblock-ip", 
                                                params={"ip_address": "192.168.1.100"})
             if response.status_code == 200:
