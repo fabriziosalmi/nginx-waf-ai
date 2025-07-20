@@ -10,7 +10,7 @@ import httpx
 import paramiko
 from typing import List, Dict, Optional
 from dataclasses import dataclass
-from .error_handling import retry, error_recovery_manager, CircuitBreakerConfig
+from .error_handling import retry, error_recovery, CircuitBreakerConfig
 from datetime import datetime
 import json
 import tempfile

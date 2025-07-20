@@ -480,10 +480,6 @@ async def shutdown_components():
     except Exception as e:
         logger.error(f"Error during component shutdown: {e}")
     
-    if traffic_collector:
-        logger.info("Stopping traffic collection...")
-        traffic_collector.is_collecting = False
-    
     # Wait a moment for background tasks to finish
     await asyncio.sleep(2)
 
@@ -615,7 +611,6 @@ async def unblock_ip(
     """Unblock an IP address (admin only)"""
     try:
         # Validate IP address format
-        import ipaddress
         ipaddress.ip_address(ip_address)
         
         # In a real implementation, you'd access the security middleware instance
@@ -641,9 +636,10 @@ async def emergency_shutdown(current_user: TokenData = require_admin()):
     try:
         logger.critical(f"EMERGENCY SHUTDOWN initiated by {current_user.username}")
         
-        # Stop all background processing
-        global is_processing
-        is_processing = False
+        # Stop all background processing using proper state management
+        with state_lock:
+            system_state['is_processing'] = False
+            system_state['shutdown_requested'] = True
         
         # Could add additional emergency procedures here
         
@@ -705,13 +701,16 @@ async def health_check():
 @rate_limit("30/minute")
 async def get_metrics(current_user: TokenData = require_viewer()):
     """Prometheus metrics endpoint - requires authentication"""
-    # Update gauge metrics
+    # Update gauge metrics using component manager
+    nginx_manager = component_manager.get_component('nginx_manager')
+    waf_rule_generator = component_manager.get_component('waf_rule_generator')
+    
     if nginx_manager:
         nodes_registered.set(len(nginx_manager.nodes))
     
     if waf_rule_generator:
         # This would need to be implemented in the rule generator
-        rules_active.set(0)  # Placeholder
+        rules_active.set(len(getattr(waf_rule_generator, 'active_rules', [])))
     
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
@@ -931,8 +930,10 @@ async def add_nginx_node(
             api_endpoint=node.api_endpoint
         )
         
+        nginx_manager = component_manager.get_component('nginx_manager')
         if nginx_manager is None:
             nginx_manager = NginxManager([nginx_node])
+            component_manager.set_component('nginx_manager', nginx_manager)
         else:
             nginx_manager.add_node(nginx_node)
         
@@ -948,6 +949,7 @@ async def add_nginx_node(
 @rate_limit("20/minute")
 async def list_nginx_nodes(current_user: TokenData = require_viewer()):
     """List all nginx nodes - requires authentication"""
+    nginx_manager = component_manager.get_component('nginx_manager')
     if nginx_manager is None:
         return {"nodes": []}
     
@@ -961,6 +963,7 @@ async def list_nginx_nodes(current_user: TokenData = require_viewer()):
 @rate_limit("20/minute")
 async def get_cluster_status(current_user: TokenData = require_viewer()):
     """Get status of all nginx nodes - requires authentication"""
+    nginx_manager = component_manager.get_component('nginx_manager')
     if nginx_manager is None:
         raise HTTPException(status_code=404, detail="No nginx manager configured")
     
@@ -1188,7 +1191,6 @@ async def process_traffic_continuously():
                             
                         except Exception as e:
                             logger.error(f"Error processing individual request: {e}")
-                            import traceback
                             traceback.print_exc()
                     
                     # Clear processed requests to avoid reprocessing
@@ -1201,10 +1203,10 @@ async def process_traffic_continuously():
                 
         except Exception as e:
             print(f"Error in processing cycle: {e}")
-            import traceback
             traceback.print_exc()
         
         # Update active rules count
+        waf_rule_generator = component_manager.get_component('waf_rule_generator')
         if waf_rule_generator:
             rules_active.set(len(getattr(waf_rule_generator, 'active_rules', [])))
         
@@ -1282,7 +1284,6 @@ async def process_threats_continuously():
         
         except Exception as e:
             logger.error(f"THREAT PROCESSOR: Error in threat processing cycle: {e}")
-            import traceback
             traceback.print_exc()
         
         await asyncio.sleep(10)  # Process every 10 seconds
@@ -1294,6 +1295,7 @@ async def process_threats_continuously():
 @rate_limit("20/minute")
 async def get_recent_threats(current_user: TokenData = require_viewer()) -> ThreatResponse:
     """Get recent threat detections - requires authentication"""
+    real_time_processor = component_manager.get_component('real_time_processor')
     if real_time_processor is None:
         return ThreatResponse(threats=[], total_threats=0, threat_patterns={})
     
@@ -1311,6 +1313,7 @@ async def get_recent_threats(current_user: TokenData = require_viewer()) -> Thre
 @rate_limit("20/minute")
 async def get_active_rules(current_user: TokenData = require_viewer()):
     """Get currently active WAF rules - requires authentication"""
+    waf_rule_generator = component_manager.get_component('waf_rule_generator')
     if waf_rule_generator is None:
         return {"rules": [], "total_rules": 0}
     
@@ -1401,6 +1404,7 @@ async def deploy_rules(
 @rate_limit("10/minute")
 async def get_nginx_config(current_user: TokenData = require_operator()):
     """Generate and return nginx configuration - requires operator role"""
+    waf_rule_generator = component_manager.get_component('waf_rule_generator')
     if waf_rule_generator is None:
         raise HTTPException(status_code=500, detail="WAF rule generator not initialized")
     
@@ -1416,6 +1420,7 @@ async def get_nginx_config(current_user: TokenData = require_operator()):
     
     except Exception as e:
         logger.error(f"Failed to generate nginx config: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate nginx config: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate nginx config: {str(e)}")
 
 

@@ -8,6 +8,7 @@ retry mechanisms, and graceful degradation for the WAF AI system.
 import asyncio
 import functools
 import logging
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -236,6 +237,57 @@ class ErrorRecoveryManager:
             else:
                 logger.error(f"No fallback strategy available for {service_name}")
                 raise
+    
+    def retry(self, max_attempts: int = 3, delay: float = 1.0, backoff: float = 2.0, exceptions: tuple = (Exception,)):
+        """Retry decorator factory"""
+        def decorator(func):
+            @functools.wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                last_exception = None
+                current_delay = delay
+                
+                for attempt in range(max_attempts):
+                    try:
+                        if asyncio.iscoroutinefunction(func):
+                            return await func(*args, **kwargs)
+                        else:
+                            return func(*args, **kwargs)
+                    except exceptions as e:
+                        last_exception = e
+                        if attempt < max_attempts - 1:
+                            logger.warning(f"Attempt {attempt + 1} failed: {e}, retrying in {current_delay}s")
+                            await asyncio.sleep(current_delay)
+                            current_delay *= backoff
+                        else:
+                            logger.error(f"All {max_attempts} attempts failed: {e}")
+                
+                raise last_exception
+            
+            @functools.wraps(func)
+            def sync_wrapper(*args, **kwargs):
+                last_exception = None
+                current_delay = delay
+                
+                for attempt in range(max_attempts):
+                    try:
+                        return func(*args, **kwargs)
+                    except exceptions as e:
+                        last_exception = e
+                        if attempt < max_attempts - 1:
+                            logger.warning(f"Attempt {attempt + 1} failed: {e}, retrying in {current_delay}s")
+                            time.sleep(current_delay)
+                            current_delay *= backoff
+                        else:
+                            logger.error(f"All {max_attempts} attempts failed: {e}")
+                
+                raise last_exception
+            
+            if asyncio.iscoroutinefunction(func):
+                return async_wrapper
+            else:
+                return sync_wrapper
+        
+        return decorator
     
     def get_health_status(self) -> Dict[str, Dict]:
         """Get health status of all monitored services"""

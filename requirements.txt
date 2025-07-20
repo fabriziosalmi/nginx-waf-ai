@@ -32,7 +32,7 @@ pydantic==2.5.2
 # Security
 PyJWT==2.8.0
 bcrypt==4.1.2
-cryptography==41.0.8
+cryptography
 python-multipart==0.0.6
 
 # Rate limiting
