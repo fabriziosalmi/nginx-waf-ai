@@ -1006,3 +1006,4 @@
 2025/07/20 23:20:43 [error] 29#29: *3 open() "/usr/share/nginx/html/api/search" failed (2: No such file or directory), client: 172.18.0.12, server: nginx-node-2, request: "GET /api/search?q=laptop HTTP/1.1", host: "nginx-node-2"
 2025/07/20 23:20:44 [error] 29#29: *3 open() "/usr/share/nginx/html/api/search" failed (2: No such file or directory), client: 172.18.0.12, server: nginx-node-2, request: "GET /api/search?q=laptop HTTP/1.1", host: "nginx-node-2"
 2025/07/20 23:20:44 [error] 29#29: *3 open() "/usr/share/nginx/html/api/search" failed (2: No such file or directory), client: 172.18.0.12, server: nginx-node-2, request: "GET /api/search?q=laptop HTTP/1.1", host: "nginx-node-2"
+2025/07/20 23:20:45 [error] 29#29: *3 open() "/usr/share/nginx/html/api/login" failed (2: No such file or directory), client: 172.18.0.12, server: nginx-node-2, request: "POST /api/login HTTP/1.1", host: "nginx-node-2"
