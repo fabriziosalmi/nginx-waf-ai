@@ -15204,3 +15204,6 @@
 2025/07/20 15:31:26 [error] 29#29: *35 open() "/usr/share/nginx/html/api/cart" failed (2: No such file or directory), client: 172.18.0.13, server: nginx-node-1, request: "GET /api/cart HTTP/1.1", host: "nginx-node-1"
 2025/07/20 15:31:27 [error] 29#29: *35 open() "/usr/share/nginx/html/api/cart" failed (2: No such file or directory), client: 172.18.0.13, server: nginx-node-1, request: "GET /api/cart HTTP/1.1", host: "nginx-node-1"
 2025/07/20 15:31:30 [error] 29#29: *35 open() "/usr/share/nginx/html/api/orders" failed (2: No such file or directory), client: 172.18.0.13, server: nginx-node-1, request: "GET /api/orders HTTP/1.1", host: "nginx-node-1"
+2025/07/20 15:31:30 [error] 29#29: *35 open() "/usr/share/nginx/html/api/orders" failed (2: No such file or directory), client: 172.18.0.13, server: nginx-node-1, request: "GET /api/orders HTTP/1.1", host: "nginx-node-1"
+2025/07/20 15:31:31 [error] 29#29: *35 open() "/usr/share/nginx/html/api/products" failed (2: No such file or directory), client: 172.18.0.13, server: nginx-node-1, request: "GET /api/products HTTP/1.1", host: "nginx-node-1"
+2025/07/20 15:31:31 [error] 29#29: *35 open() "/usr/share/nginx/html/api/comment" failed (2: No such file or directory), client: 172.18.0.13, server: nginx-node-1, request: "POST /api/comment HTTP/1.1", host: "nginx-node-1"
