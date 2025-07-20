@@ -560,7 +560,7 @@ async def create_user(
 
 @app.get("/auth/users")
 @rate_limit("10/minute")
-async def list_users(current_user: TokenData = require_admin()):
+async def list_users(request: Request, current_user: TokenData = require_admin()):
     """List all users (admin only)"""
     try:
         return auth_manager.get_user_stats()
