@@ -1,9 +1,0 @@
-logs/
-.vscode/
-.venv/
-__pycache__/
-*.pyc
-docker/nginx-node-1/logs/
-docker/nginx-node-2/logs/
-docker/nginx-node-1/logs/access.log
-docker/nginx-node-1/logs/error.log
