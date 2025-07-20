@@ -53,16 +53,15 @@ class ValidationError(HTTPException):
 
 
 class SecureNginxNodeModel(BaseModel):
-    """Secure nginx node model with comprehensive validation"""
-    node_id: str = Field(..., min_length=1, max_length=50, regex=r'^[a-zA-Z0-9\-_]+$')
+    """Secure model for nginx node configuration with strict validation"""
+    node_id: str = Field(..., min_length=1, max_length=50, pattern=r'^[a-zA-Z0-9\-_]+$')
     hostname: str = Field(..., min_length=1, max_length=255)
     ssh_host: str = Field(..., min_length=1, max_length=255)
-    ssh_port: int = Field(22, ge=1, le=65535)
-    ssh_username: str = Field(..., min_length=1, max_length=50, regex=r'^[a-zA-Z0-9\-_]+$')
-    ssh_key_path: Optional[str] = Field(None, max_length=500)
-    nginx_config_path: str = Field("/etc/nginx/conf.d", max_length=500)
-    nginx_reload_command: str = Field("sudo systemctl reload nginx", max_length=200)
-    api_endpoint: Optional[str] = Field(None, max_length=500)
+    ssh_port: int = Field(default=22, ge=1, le=65535)
+    ssh_username: str = Field(..., min_length=1, max_length=50, pattern=r'^[a-zA-Z0-9._-]+$')
+    ssh_key_path: str = Field(..., min_length=1, max_length=500)
+    nginx_config_path: str = Field(..., min_length=1, max_length=500)
+    nginx_reload_command: str = Field(default="sudo systemctl reload nginx", max_length=200)
     
     @validator('hostname')
     def validate_hostname(cls, v):
@@ -121,14 +120,6 @@ class SecureNginxNodeModel(BaseModel):
         ]
         if v not in allowed_commands:
             raise ValueError(f'Nginx reload command must be one of: {allowed_commands}')
-        return v
-    
-    @validator('api_endpoint')
-    def validate_api_endpoint(cls, v):
-        if v is not None:
-            # Must be valid HTTP/HTTPS URL
-            if not re.match(r'^https?://[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?(:[0-9]+)?(/.*)?$', v):
-                raise ValueError('Invalid API endpoint URL format')
         return v
 
 
@@ -213,7 +204,7 @@ class SecureTrainingRequest(BaseModel):
 
 class SecureHttpRequest(BaseModel):
     """Secure HTTP request model for analysis"""
-    timestamp: str = Field(..., regex=r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}')
+    timestamp: str = Field(..., pattern=r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}')
     method: HttpMethod
     url: str = Field(..., min_length=1, max_length=2000)
     headers_count: int = Field(..., ge=0, le=100)
@@ -225,7 +216,7 @@ class SecureHttpRequest(BaseModel):
     url_length: int = Field(..., ge=0, le=2000)
     contains_sql_patterns: bool
     contains_xss_patterns: bool
-    node_id: str = Field('default', min_length=1, max_length=50, regex=r'^[a-zA-Z0-9\-_]+$')
+    node_id: str = Field('default', min_length=1, max_length=50, pattern=r'^[a-zA-Z0-9\-_]+$')
     
     @validator('timestamp')
     def validate_timestamp(cls, v):
@@ -311,7 +302,7 @@ class SecureRuleDeploymentRequest(BaseModel):
 
 class UserManagementRequest(BaseModel):
     """User management request validation"""
-    username: str = Field(..., min_length=3, max_length=50, regex=r'^[a-zA-Z0-9\-_]+$')
+    username: str = Field(..., min_length=3, max_length=50, pattern=r'^[a-zA-Z0-9\-_]+$')
     password: str = Field(..., min_length=8, max_length=128)
     roles: List[str] = Field(..., min_items=1, max_items=10)
     
@@ -352,7 +343,7 @@ class LoginRequest(BaseModel):
 
 class ApiKeyRequest(BaseModel):
     """API key generation request"""
-    username: str = Field(..., min_length=1, max_length=50, regex=r'^[a-zA-Z0-9\-_]+$')
+    username: str = Field(..., min_length=1, max_length=50, pattern=r'^[a-zA-Z0-9\-_]+$')
     description: Optional[str] = Field(None, max_length=200)
 
 

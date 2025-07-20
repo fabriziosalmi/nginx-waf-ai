@@ -5,9 +5,11 @@ FastAPI-based API for the nginx WAF AI system with comprehensive security.
 """
 
 import asyncio
+import ipaddress
 import os
 import ssl
 import threading
+import traceback
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import List, Dict, Optional, Any
@@ -41,6 +43,8 @@ from .traffic_collector import TrafficCollector, HttpRequest
 from .ml_engine import MLEngine, RealTimeProcessor, ThreatPrediction
 from .waf_rule_generator import WAFRuleGenerator, WAFRule, RuleOptimizer
 from .nginx_manager import NginxManager, NginxNode
+from .security_middleware import SecurityMiddleware, is_ip_whitelisted
+from .error_handling import error_recovery, degradation_manager, CircuitBreakerConfig
 
 # Initialize rate limiter if available
 if RATE_LIMITING_AVAILABLE:
@@ -56,22 +60,62 @@ def rate_limit(limit: str):
         return func
     return decorator
 
-# Thread-safe locks for global variables
-processing_lock = threading.Lock()
-component_lock = threading.Lock()
+# Thread-safe locks for global variables and state management
+processing_lock = threading.RLock()  # Reentrant lock for nested calls
+component_lock = threading.RLock()  # Reentrant lock for component management
+state_lock = threading.RLock()  # Lock for shared state variables
+
+# System state with proper synchronization
+system_state = {
+    'is_processing': False,
+    'components_initialized': False,
+    'last_error': None,
+    'startup_time': None,
+    'shutdown_requested': False
+}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager for startup/shutdown"""
-    # Startup
-    logger.info("Starting Nginx WAF AI system...")
-    await startup_components()
-    
-    yield
-    
-    # Shutdown
-    logger.info("Shutting down Nginx WAF AI system...")
-    await shutdown_components()
+    """Enhanced lifespan context manager with comprehensive error handling"""
+    try:
+        # Startup
+        logger.info("Starting Nginx WAF AI system...")
+        
+        with state_lock:
+            system_state['startup_time'] = datetime.now()
+            system_state['shutdown_requested'] = False
+        
+        await startup_components()
+        
+        with state_lock:
+            system_state['components_initialized'] = True
+            
+        logger.info("System startup completed successfully")
+        
+        yield
+        
+    except Exception as e:
+        logger.error(f"Critical error during system startup: {e}")
+        with state_lock:
+            system_state['last_error'] = str(e)
+        # Still yield to allow FastAPI to start, but mark system as unhealthy
+        yield
+        
+    finally:
+        # Shutdown
+        try:
+            logger.info("Shutting down Nginx WAF AI system...")
+            
+            with state_lock:
+                system_state['shutdown_requested'] = True
+                
+            await shutdown_components()
+            logger.info("System shutdown completed successfully")
+            
+        except Exception as e:
+            logger.error(f"Error during system shutdown: {e}")
+            with state_lock:
+                system_state['last_error'] = str(e)
 
 
 # Create FastAPI app with security middleware
@@ -82,6 +126,17 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url="/docs" if config.api_debug else None,  # Disable docs in production
     redoc_url="/redoc" if config.api_debug else None
+)
+
+# Add security middleware first (before other middleware)
+app.add_middleware(
+    SecurityMiddleware,
+    rate_limit_requests=config.security.rate_limit_requests,
+    rate_limit_window=config.security.rate_limit_window,
+    enable_dos_protection=True,
+    enable_input_validation=True,
+    max_request_size=10 * 1024 * 1024,  # 10MB
+    enable_honeypot=True
 )
 
 # Add rate limiting if available
@@ -129,16 +184,92 @@ nodes_registered = Gauge('waf_nodes_registered', 'Number of registered nginx nod
 processing_time = Histogram('waf_processing_time_seconds', 'Time spent processing requests')
 auth_attempts = Counter('waf_auth_attempts_total', 'Authentication attempts', ['status'])
 
-# Global components with thread safety
-traffic_collector: Optional[TrafficCollector] = None
-ml_engine: Optional[MLEngine] = None
-real_time_processor: Optional[RealTimeProcessor] = None
-waf_rule_generator: Optional[WAFRuleGenerator] = None
-nginx_manager: Optional[NginxManager] = None
-rule_optimizer: Optional[RuleOptimizer] = None
+# Global components with thread safety - use proper synchronization
+class ComponentManager:
+    """Thread-safe component manager"""
+    def __init__(self):
+        self._lock = threading.RLock()
+        self._components = {
+            'traffic_collector': None,
+            'ml_engine': None,
+            'real_time_processor': None,
+            'waf_rule_generator': None,
+            'nginx_manager': None,
+            'rule_optimizer': None
+        }
+        self._component_status = {
+            'traffic_collector': {'status': 'stopped', 'last_error': None},
+            'ml_engine': {'status': 'stopped', 'last_error': None},
+            'real_time_processor': {'status': 'stopped', 'last_error': None},
+            'waf_rule_generator': {'status': 'stopped', 'last_error': None},
+            'nginx_manager': {'status': 'stopped', 'last_error': None},
+            'rule_optimizer': {'status': 'stopped', 'last_error': None}
+        }
+    
+    def get_component(self, name: str):
+        with self._lock:
+            return self._components.get(name)
+    
+    def set_component(self, name: str, component):
+        with self._lock:
+            self._components[name] = component
+            if component is not None:
+                self._component_status[name]['status'] = 'running'
+                self._component_status[name]['last_error'] = None
+    
+    def get_status(self, name: str = None):
+        with self._lock:
+            if name:
+                return self._component_status.get(name, {})
+            return self._component_status.copy()
+    
+    def set_error(self, name: str, error: str):
+        with self._lock:
+            if name in self._component_status:
+                self._component_status[name]['status'] = 'error'
+                self._component_status[name]['last_error'] = error
+    
+    def shutdown_all(self):
+        with self._lock:
+            for name in self._components:
+                self._components[name] = None
+                self._component_status[name]['status'] = 'stopped'
 
-# Background task status
-is_processing = False
+# Global component manager instance
+component_manager = ComponentManager()
+
+# Helper functions for safe component access
+def get_ml_engine() -> Optional[MLEngine]:
+    """Safely get ML engine component"""
+    return component_manager.get_component('ml_engine')
+
+def get_waf_rule_generator() -> Optional[WAFRuleGenerator]:
+    """Safely get WAF rule generator component"""
+    return component_manager.get_component('waf_rule_generator')
+
+def get_nginx_manager() -> Optional[NginxManager]:
+    """Safely get nginx manager component"""
+    return component_manager.get_component('nginx_manager')
+
+def get_traffic_collector() -> Optional[TrafficCollector]:
+    """Safely get traffic collector component"""
+    return component_manager.get_component('traffic_collector')
+
+def get_real_time_processor() -> Optional[RealTimeProcessor]:
+    """Safely get real-time processor component"""
+    return component_manager.get_component('real_time_processor')
+
+def get_rule_optimizer() -> Optional[RuleOptimizer]:
+    """Safely get rule optimizer component"""
+    return component_manager.get_component('rule_optimizer')
+
+def require_component(component_name: str, component):
+    """Raise HTTPException if component is not available"""
+    if component is None:
+        raise HTTPException(
+            status_code=503, 
+            detail=f"{component_name} not available. Check system status."
+        )
 
 
 # Response models
@@ -161,48 +292,193 @@ class AuthResponse(BaseModel):
 
 
 async def startup_components():
-    """Initialize system components"""
-    global ml_engine, waf_rule_generator, rule_optimizer, traffic_collector
+    """Initialize system components with comprehensive error handling"""
+    logger.info("Starting component initialization...")
     
     try:
         with component_lock:
-            logger.info("Initializing ML engine...")
-            ml_engine = MLEngine()
+            # Initialize ML engine with error handling
+            try:
+                logger.info("Initializing ML engine...")
+                ml_engine = MLEngine()
+                component_manager.set_component('ml_engine', ml_engine)
+                
+                # Try to load existing model
+                model_path = config.ml_model_path
+                if os.path.exists(model_path):
+                    try:
+                        ml_engine.load_models(model_path)
+                        logger.info(f"Loaded existing ML model from {model_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to load existing model: {e}, will use default model")
+                
+            except Exception as e:
+                logger.error(f"Failed to initialize ML engine: {e}")
+                component_manager.set_error('ml_engine', str(e))
+                # Don't raise here, continue with other components
             
-            logger.info("Initializing WAF rule generator...")
-            waf_rule_generator = WAFRuleGenerator()
+            # Initialize WAF rule generator with error handling
+            try:
+                logger.info("Initializing WAF rule generator...")
+                waf_rule_generator = WAFRuleGenerator()
+                component_manager.set_component('waf_rule_generator', waf_rule_generator)
+                
+            except Exception as e:
+                logger.error(f"Failed to initialize WAF rule generator: {e}")
+                component_manager.set_error('waf_rule_generator', str(e))
             
-            logger.info("Initializing rule optimizer...")
-            rule_optimizer = RuleOptimizer()
+            # Initialize rule optimizer with error handling
+            try:
+                logger.info("Initializing rule optimizer...")
+                rule_optimizer = RuleOptimizer()
+                component_manager.set_component('rule_optimizer', rule_optimizer)
+                
+            except Exception as e:
+                logger.error(f"Failed to initialize rule optimizer: {e}")
+                component_manager.set_error('rule_optimizer', str(e))
             
-            # Initialize traffic collector with environment variable
-            nginx_nodes_env = os.getenv('NGINX_NODES', '')
-            logger.info(f"NGINX_NODES environment variable: '{nginx_nodes_env}'")
+            # Initialize nginx manager with error handling
+            try:
+                logger.info("Initializing nginx manager...")
+                # Load nginx nodes from config
+                nginx_nodes = []
+                nginx_nodes_env = os.getenv('NGINX_NODES', '')
+                
+                if nginx_nodes_env:
+                    node_urls = [url.strip() for url in nginx_nodes_env.split(',') if url.strip()]
+                    logger.info(f"Found nginx nodes: {node_urls}")
+                    
+                    # Create nginx node objects (simplified for demo)
+                    for i, url in enumerate(node_urls):
+                        nginx_nodes.append(NginxNode(
+                            node_id=f"node_{i+1}",
+                            hostname=url,
+                            ssh_host="localhost",  # Default for demo
+                            ssh_port=22,
+                            ssh_username="nginx",
+                            ssh_key_path=None,
+                            nginx_config_path="/etc/nginx/conf.d",
+                            nginx_reload_command="sudo systemctl reload nginx"
+                        ))
+                
+                if nginx_nodes:
+                    nginx_manager = NginxManager(nginx_nodes)
+                    component_manager.set_component('nginx_manager', nginx_manager)
+                else:
+                    logger.warning("No nginx nodes configured")
+                
+            except Exception as e:
+                logger.error(f"Failed to initialize nginx manager: {e}")
+                component_manager.set_error('nginx_manager', str(e))
             
-            if nginx_nodes_env:
-                node_urls = [url.strip() for url in nginx_nodes_env.split(',') if url.strip()]
-                logger.info(f"Parsed node URLs: {node_urls}")
-                if node_urls:
-                    traffic_collector = TrafficCollector(node_urls)
-                    # Start collection in background
-                    asyncio.create_task(traffic_collector.start_collection())
-                    logger.info(f"Traffic collection started for nodes: {node_urls}")
-            else:
-                logger.warning("No NGINX_NODES environment variable found")
+            # Initialize traffic collector with error handling
+            try:
+                logger.info("Initializing traffic collector...")
+                nginx_nodes_env = os.getenv('NGINX_NODES', '')
+                
+                if nginx_nodes_env:
+                    node_urls = [url.strip() for url in nginx_nodes_env.split(',') if url.strip()]
+                    if node_urls:
+                        traffic_collector = TrafficCollector(node_urls)
+                        component_manager.set_component('traffic_collector', traffic_collector)
+                        
+                        # Start collection in background with error handling
+                        try:
+                            asyncio.create_task(traffic_collector.start_collection())
+                            logger.info(f"Traffic collection started for nodes: {node_urls}")
+                        except Exception as e:
+                            logger.error(f"Failed to start traffic collection: {e}")
+                            component_manager.set_error('traffic_collector', str(e))
+                else:
+                    logger.warning("No NGINX_NODES environment variable found")
+                    
+            except Exception as e:
+                logger.error(f"Failed to initialize traffic collector: {e}")
+                component_manager.set_error('traffic_collector', str(e))
             
-            logger.info("Nginx WAF AI system components initialized successfully")
+            # Initialize real-time processor if ML engine is available
+            try:
+                ml_engine = component_manager.get_component('ml_engine')
+                if ml_engine:
+                    logger.info("Initializing real-time processor...")
+                    real_time_processor = RealTimeProcessor(ml_engine, config.threat_threshold)
+                    component_manager.set_component('real_time_processor', real_time_processor)
+                else:
+                    logger.warning("ML engine not available, skipping real-time processor")
+                    
+            except Exception as e:
+                logger.error(f"Failed to initialize real-time processor: {e}")
+                component_manager.set_error('real_time_processor', str(e))
+            
+            logger.info("Component initialization completed")
+            
+            # Log component status
+            status = component_manager.get_status()
+            for component, details in status.items():
+                if details['status'] == 'running':
+                    logger.info(f"✓ {component}: running")
+                elif details['status'] == 'error':
+                    logger.warning(f"✗ {component}: error - {details['last_error']}")
+                else:
+                    logger.info(f"- {component}: {details['status']}")
+            
+            # Register fallback strategies for critical components
+            logger.info("Registering fallback strategies...")
+            degradation_manager.register_dependency('ml_engine', 'traffic_analysis', 'static_rules')
+            degradation_manager.register_dependency('nginx_manager', 'config_deployment', 'manual_config')
+            degradation_manager.register_dependency('traffic_collector', 'real_time_monitoring', 'log_based')
+            logger.info("Fallback strategies registered successfully")
     
     except Exception as e:
-        logger.error(f"Failed to initialize components: {e}")
+        logger.error(f"Critical error during component initialization: {e}")
         raise
 
 
 async def shutdown_components():
-    """Shutdown system components gracefully"""
-    global is_processing, traffic_collector
+    """Shutdown system components gracefully with comprehensive error handling"""
+    logger.info("Starting graceful component shutdown...")
     
-    logger.info("Shutting down background processing...")
-    is_processing = False
+    try:
+        with component_lock:
+            # Stop processing first
+            with state_lock:
+                system_state['is_processing'] = False
+            
+            # Shutdown traffic collector
+            try:
+                traffic_collector = component_manager.get_component('traffic_collector')
+                if traffic_collector:
+                    await traffic_collector.stop_collection()
+                    logger.info("Traffic collector stopped")
+            except Exception as e:
+                logger.error(f"Error stopping traffic collector: {e}")
+            
+            # Shutdown nginx manager
+            try:
+                nginx_manager = component_manager.get_component('nginx_manager')
+                if nginx_manager:
+                    nginx_manager.cleanup_resources()
+                    logger.info("Nginx manager cleaned up")
+            except Exception as e:
+                logger.error(f"Error cleaning up nginx manager: {e}")
+            
+            # Save ML model if available
+            try:
+                ml_engine = component_manager.get_component('ml_engine')
+                if ml_engine and ml_engine.is_trained:
+                    model_path = config.ml_model_path
+                    os.makedirs(os.path.dirname(model_path), exist_ok=True)
+                    ml_engine.save_models(model_path)
+                    logger.info(f"ML model saved to {model_path}")
+            except Exception as e:
+                logger.error(f"Error saving ML model: {e}")
+            
+            # Shutdown all components
+            component_manager.shutdown_all()
+            logger.info("All components shutdown completed")
+            
+    except Exception as e:
+        logger.error(f"Error during component shutdown: {e}")
     
     if traffic_collector:
         logger.info("Stopping traffic collection...")
@@ -297,10 +573,95 @@ async def list_users(current_user: TokenData = require_admin()):
         raise HTTPException(status_code=500, detail="Failed to list users")
 
 
+# ============= SECURITY MANAGEMENT ENDPOINTS =============
+
+@app.get("/api/security/stats")
+@rate_limit("10/minute")
+async def get_security_stats(current_user: TokenData = require_admin()):
+    """Get security statistics and events (admin only)"""
+    try:
+        # Get security middleware stats
+        security_middleware = None
+        for middleware in app.user_middleware:
+            if isinstance(middleware.cls, type) and issubclass(middleware.cls, SecurityMiddleware):
+                # This is a bit hacky, but we need to access the middleware instance
+                # In a real implementation, you'd store a reference to the middleware
+                break
+        
+        base_stats = {
+            "timestamp": datetime.now().isoformat(),
+            "auth_stats": auth_manager.get_user_stats(),
+            "system_security": {
+                "https_enabled": config.security.use_https,
+                "rate_limiting": RATE_LIMITING_AVAILABLE,
+                "security_headers": config.security.enable_security_headers,
+                "debug_mode": config.api_debug
+            }
+        }
+        
+        return base_stats
+    
+    except Exception as e:
+        logger.error(f"Failed to get security stats: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get security stats")
+
+
+@app.post("/api/security/unblock-ip")
+@rate_limit("5/minute")
+async def unblock_ip(
+    ip_address: str,
+    current_user: TokenData = require_admin()
+):
+    """Unblock an IP address (admin only)"""
+    try:
+        # Validate IP address format
+        import ipaddress
+        ipaddress.ip_address(ip_address)
+        
+        # In a real implementation, you'd access the security middleware instance
+        logger.info(f"IP unblock request for {ip_address} by {current_user.username}")
+        
+        return {
+            "message": f"IP {ip_address} unblock requested",
+            "timestamp": datetime.now().isoformat(),
+            "admin": current_user.username
+        }
+    
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid IP address format")
+    except Exception as e:
+        logger.error(f"Failed to unblock IP: {e}")
+        raise HTTPException(status_code=500, detail="Failed to unblock IP")
+
+
+@app.post("/api/security/emergency-shutdown")
+@rate_limit("1/minute")
+async def emergency_shutdown(current_user: TokenData = require_admin()):
+    """Emergency shutdown endpoint (admin only)"""
+    try:
+        logger.critical(f"EMERGENCY SHUTDOWN initiated by {current_user.username}")
+        
+        # Stop all background processing
+        global is_processing
+        is_processing = False
+        
+        # Could add additional emergency procedures here
+        
+        return {
+            "message": "Emergency shutdown initiated",
+            "timestamp": datetime.now().isoformat(),
+            "admin": current_user.username
+        }
+    
+    except Exception as e:
+        logger.error(f"Emergency shutdown failed: {e}")
+        raise HTTPException(status_code=500, detail="Emergency shutdown failed")
+
+
 # ============= PUBLIC ENDPOINTS =============
 
 @app.get("/")
-@limiter.limit("30/minute")
+@rate_limit("30/minute")
 async def root():
     """Root endpoint"""
     return {
@@ -313,10 +674,16 @@ async def root():
 
 
 @app.get("/health")
-@limiter.limit("60/minute")
+@rate_limit("60/minute")
 async def health_check():
     """Health check endpoint"""
     try:
+        # Get components safely
+        ml_engine = component_manager.get_component('ml_engine')
+        traffic_collector = component_manager.get_component('traffic_collector')
+        waf_rule_generator = component_manager.get_component('waf_rule_generator')
+        nginx_manager = component_manager.get_component('nginx_manager')
+        
         with component_lock:
             return {
                 "status": "healthy",
@@ -326,58 +693,44 @@ async def health_check():
                     "waf_generator": waf_rule_generator is not None,
                     "nginx_manager": nginx_manager is not None,
                     "authentication": True,
-                    "rate_limiting": True
+                    "rate_limiting": RATE_LIMITING_AVAILABLE
                 },
                 "timestamp": datetime.now().isoformat()
             }
     except Exception as e:
         logger.error(f"Health check error: {e}")
         return {"status": "unhealthy", "error": str(e)}
+
+@app.get("/metrics")
+@rate_limit("30/minute")
+async def get_metrics(current_user: TokenData = require_viewer()):
+    """Prometheus metrics endpoint - requires authentication"""
+    # Update gauge metrics
+    if nginx_manager:
+        nodes_registered.set(len(nginx_manager.nodes))
     
-    if nginx_nodes_env:
-        node_urls = [url.strip() for url in nginx_nodes_env.split(',') if url.strip()]
-        print(f"Parsed node URLs: {node_urls}")
-        if node_urls:
-            traffic_collector = TrafficCollector(node_urls)
-            # Start collection in background
-            asyncio.create_task(traffic_collector.start_collection())
-            print(f"Traffic collection started for nodes: {node_urls}")
-    else:
-        print("No NGINX_NODES environment variable found")
+    if waf_rule_generator:
+        # This would need to be implemented in the rule generator
+        rules_active.set(0)  # Placeholder
     
-    print("Nginx WAF AI system initialized")
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "message": "Nginx WAF AI System",
-        "version": "0.1.0",
-        "status": "running",
-        "timestamp": datetime.now().isoformat()
-    }
-
-
-@app.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "components": {
-            "ml_engine": ml_engine is not None and ml_engine.is_trained,
-            "traffic_collector": traffic_collector is not None,
-            "waf_generator": waf_rule_generator is not None,
-            "nginx_manager": nginx_manager is not None
-        },
-        "timestamp": datetime.now().isoformat()
-    }
-
+# ============= PROTECTED ENDPOINTS =============
 
 @app.get("/api/debug/status")
-async def debug_status():
-    """Debug endpoint to check system status"""
-    global traffic_collector, ml_engine, real_time_processor, is_processing
+@rate_limit("10/minute")
+async def debug_status(current_user: TokenData = require_operator()):
+    """Debug endpoint to check system status - requires operator role"""
+    
+    # Get components safely using component manager
+    traffic_collector = component_manager.get_component('traffic_collector')
+    ml_engine = component_manager.get_component('ml_engine')
+    real_time_processor = component_manager.get_component('real_time_processor')
+    
+    # Get processing state safely
+    with state_lock:
+        is_processing = system_state['is_processing']
     
     status = {
         "traffic_collector": {
@@ -395,79 +748,100 @@ async def debug_status():
         },
         "processing": {
             "is_processing": is_processing
-        }
+        },
+        "components_status": component_manager.get_status()
     }
     
     return status
 
+
 @app.post("/api/debug/test-prediction")
-async def test_prediction():
+@rate_limit("5/minute")
+async def test_prediction(current_user: TokenData = require_operator()):
     """Debug endpoint to test ML predictions on sample malicious requests"""
+    ml_engine = get_ml_engine()
     if ml_engine is None or not ml_engine.is_trained:
         raise HTTPException(status_code=400, detail="ML engine not trained")
     
-    # Test with clearly malicious requests
-    test_requests = [
-        {
-            'url_length': 30,
-            'body_length': 0,
-            'headers_count': 5,
-            'content_length': 0,
-            'has_suspicious_headers': False,
-            'contains_sql_patterns': True,
-            'contains_xss_patterns': False,
-            'method': 'GET',
-            'timestamp': '2025-01-20T15:30:00'
-        },
-        {
-            'url_length': 25,
-            'body_length': 0,
-            'headers_count': 5,
-            'content_length': 0,
-            'has_suspicious_headers': False,
-            'contains_sql_patterns': False,
-            'contains_xss_patterns': True,
-            'method': 'GET',
-            'timestamp': '2025-01-20T15:30:00'
-        },
-        {
-            'url_length': 15,
-            'body_length': 0,
-            'headers_count': 5,
-            'content_length': 0,
-            'has_suspicious_headers': False,
-            'contains_sql_patterns': False,
-            'contains_xss_patterns': False,
-            'method': 'GET',
-            'timestamp': '2025-01-20T15:30:00'
-        }
-    ]
-    
-    predictions = ml_engine.predict_threats(test_requests)
-    
-    return {
-        "predictions": [
+    try:
+        # Test with clearly malicious requests
+        test_requests = [
             {
-                "threat_score": pred.threat_score,
-                "threat_type": pred.threat_type,
-                "confidence": pred.confidence,
-                "request_features": f"sql:{test_requests[i].get('contains_sql_patterns')}, xss:{test_requests[i].get('contains_xss_patterns')}"
+                'url_length': 30,
+                'body_length': 0,
+                'headers_count': 5,
+                'content_length': 0,
+                'has_suspicious_headers': False,
+                'contains_sql_patterns': True,
+                'contains_xss_patterns': False,
+                'method': 'GET',
+                'timestamp': '2025-01-20T15:30:00'
+            },
+            {
+                'url_length': 25,
+                'body_length': 0,
+                'headers_count': 5,
+                'content_length': 0,
+                'has_suspicious_headers': False,
+                'contains_sql_patterns': False,
+                'contains_xss_patterns': True,
+                'method': 'GET',
+                'timestamp': '2025-01-20T15:30:00'
+            },
+            {
+                'url_length': 15,
+                'body_length': 0,
+                'headers_count': 5,
+                'content_length': 0,
+                'has_suspicious_headers': False,
+                'contains_sql_patterns': False,
+                'contains_xss_patterns': False,
+                'method': 'GET',
+                'timestamp': '2025-01-20T15:30:00'
             }
-            for i, pred in enumerate(predictions)
-        ],
-        "threshold_info": {
-            "threshold": "score < -0.1 OR confidence > 0.6 OR type != 'normal'",
-            "qualified_threats": [
-                i for i, pred in enumerate(predictions)
-                if pred.threat_score < -0.1 or pred.confidence > 0.6 or pred.threat_type != 'normal'
-            ]
+        ]
+        
+        predictions = ml_engine.predict_threats(test_requests)
+        
+        return {
+            "predictions": [
+                {
+                    "threat_score": pred.threat_score,
+                    "threat_type": pred.threat_type,
+                    "confidence": pred.confidence,
+                    "request_features": f"sql:{test_requests[i].get('contains_sql_patterns')}, xss:{test_requests[i].get('contains_xss_patterns')}"
+                }
+                for i, pred in enumerate(predictions)
+            ],
+            "threshold_info": {
+                "threshold": "score < -0.1 OR confidence > 0.6 OR type != 'normal'",
+                "qualified_threats": [
+                    i for i, pred in enumerate(predictions)
+                    if pred.threat_score < -0.1 or pred.confidence > 0.6 or pred.threat_type != 'normal'
+                ]
+            }
         }
-    }
+    
+    except Exception as e:
+        logger.error(f"Failed to test predictions: {e}")
+        raise HTTPException(status_code=500, detail=f"Prediction test failed: {str(e)}")
 
 
 @app.get("/api/status")
-async def get_system_status():
-    """Get system status for debugging"""
+@rate_limit("10/minute")
+async def get_system_status(current_user: TokenData = require_viewer()):
+    """Get system status - requires authentication"""
+    # Get components safely
+    traffic_collector = component_manager.get_component('traffic_collector')
+    ml_engine = component_manager.get_component('ml_engine')
+    real_time_processor = component_manager.get_component('real_time_processor')
+    waf_rule_generator = component_manager.get_component('waf_rule_generator')
+    nginx_manager = component_manager.get_component('nginx_manager')
+    
+    # Get processing state safely
+    with state_lock:
+        is_processing = system_state['is_processing']
+    
     return {
         "is_processing": is_processing,
         "traffic_collector": traffic_collector is not None,
@@ -482,48 +856,98 @@ async def get_system_status():
     }
 
 
-@app.get("/metrics")
-async def get_metrics():
-    """Prometheus metrics endpoint"""
-    # Update gauge metrics
-    if nginx_manager:
-        nodes_registered.set(len(nginx_manager.nodes))
+@app.get("/api/health")
+@rate_limit("20/minute")
+async def get_system_health(current_user: TokenData = require_viewer()):
+    """Get comprehensive system health including error recovery status"""
+    try:
+        # Get component status
+        component_status = component_manager.get_status()
+        
+        # Get degradation status
+        degradation_status = degradation_manager.get_degradation_status()
+        
+        # Get circuit breaker status
+        circuit_breaker_status = error_recovery.get_health_status()
+        
+        # Get processing state
+        with state_lock:
+            processing_state = system_state.copy()
+        
+        # Calculate overall health score
+        total_components = len(component_status)
+        healthy_components = sum(1 for status in component_status.values() if status.get('status') == 'running')
+        health_score = (healthy_components / total_components) * 100 if total_components > 0 else 0
+        
+        # Determine system status
+        if health_score >= 90:
+            system_status = "healthy"
+        elif health_score >= 70:
+            system_status = "degraded"
+        elif health_score >= 50:
+            system_status = "critical"
+        else:
+            system_status = "failing"
+        
+        return {
+            "system_status": system_status,
+            "health_score": round(health_score, 2),
+            "processing_state": processing_state,
+            "components": component_status,
+            "degradation": degradation_status,
+            "circuit_breakers": circuit_breaker_status,
+            "error_recovery": {
+                "fallbacks_available": len(error_recovery.fallback_strategies),
+                "features_degraded": len(degradation_status.get('degraded_features', [])),
+                "recovery_enabled": True
+            },
+            "timestamp": datetime.now().isoformat()
+        }
     
-    if waf_rule_generator:
-        # This would need to be implemented in the rule generator
-        rules_active.set(0)  # Placeholder
-    
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    except Exception as e:
+        logger.error(f"Failed to get system health: {e}")
+        raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
 
 
 @app.post("/api/nodes/add")
-async def add_nginx_node(node: NginxNodeModel):
-    """Add a new nginx node to the cluster"""
+@rate_limit("5/minute")
+async def add_nginx_node(
+    node: SecureNginxNodeModel,
+    current_user: TokenData = require_admin()
+):
+    """Add a new nginx node to the cluster - requires admin role"""
     global nginx_manager
     
-    nginx_node = NginxNode(
-        node_id=node.node_id,
-        hostname=node.hostname,
-        ssh_host=node.ssh_host,
-        ssh_port=node.ssh_port,
-        ssh_username=node.ssh_username,
-        ssh_key_path=node.ssh_key_path,
-        nginx_config_path=node.nginx_config_path,
-        nginx_reload_command=node.nginx_reload_command,
-        api_endpoint=node.api_endpoint
-    )
+    try:
+        nginx_node = NginxNode(
+            node_id=node.node_id,
+            hostname=node.hostname,
+            ssh_host=node.ssh_host,
+            ssh_port=node.ssh_port,
+            ssh_username=node.ssh_username,
+            ssh_key_path=node.ssh_key_path,
+            nginx_config_path=node.nginx_config_path,
+            nginx_reload_command=node.nginx_reload_command,
+            api_endpoint=node.api_endpoint
+        )
+        
+        if nginx_manager is None:
+            nginx_manager = NginxManager([nginx_node])
+        else:
+            nginx_manager.add_node(nginx_node)
+        
+        logger.info(f"Node {node.node_id} added by user {current_user.username}")
+        return {"message": f"Node {node.node_id} added successfully"}
     
-    if nginx_manager is None:
-        nginx_manager = NginxManager([nginx_node])
-    else:
-        nginx_manager.add_node(nginx_node)
-    
-    return {"message": f"Node {node.node_id} added successfully"}
+    except Exception as e:
+        logger.error(f"Failed to add node {node.node_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to add node: {str(e)}")
 
 
 @app.get("/api/nodes")
-async def list_nginx_nodes():
-    """List all nginx nodes"""
+@rate_limit("20/minute")
+async def list_nginx_nodes(current_user: TokenData = require_viewer()):
+    """List all nginx nodes - requires authentication"""
     if nginx_manager is None:
         return {"nodes": []}
     
@@ -534,22 +958,33 @@ async def list_nginx_nodes():
 
 
 @app.get("/api/nodes/status")
-async def get_cluster_status():
-    """Get status of all nginx nodes"""
+@rate_limit("20/minute")
+async def get_cluster_status(current_user: TokenData = require_viewer()):
+    """Get status of all nginx nodes - requires authentication"""
     if nginx_manager is None:
         raise HTTPException(status_code=404, detail="No nginx manager configured")
     
-    status = await nginx_manager.get_cluster_status()
-    return status
+    try:
+        status = await nginx_manager.get_cluster_status()
+        return status
+    except Exception as e:
+        logger.error(f"Failed to get cluster status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get cluster status: {str(e)}")
 
 
 @app.post("/api/training/start")
-async def start_training(request: TrainingRequest):
-    """Start ML model training"""
+@rate_limit("3/minute")
+async def start_training(
+    request: SecureTrainingRequest,
+    current_user: TokenData = require_operator()
+):
+    """Start ML model training - requires operator role"""
+    ml_engine = component_manager.get_component('ml_engine')
     if ml_engine is None:
         raise HTTPException(status_code=500, detail="ML engine not initialized")
     
     try:
+        logger.info(f"Training started by user {current_user.username}")
         ml_engine.train_models(request.training_data, request.labels)
         return {
             "message": "Training completed successfully",
@@ -557,71 +992,119 @@ async def start_training(request: TrainingRequest):
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
+        logger.error(f"Training failed: {e}")
         raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
 
 
 @app.post("/api/traffic/start-collection")
-async def start_traffic_collection(node_urls: List[str]):
-    """Start collecting traffic from nginx nodes"""
-    global traffic_collector
+@rate_limit("5/minute")
+async def start_traffic_collection(
+    node_urls: List[str],
+    current_user: TokenData = require_operator()
+):
+    """Start collecting traffic from nginx nodes - requires operator role"""
     
-    traffic_collector = TrafficCollector(node_urls)
+    try:
+        # Validate URLs
+        if not node_urls:
+            raise HTTPException(status_code=400, detail="At least one node URL required")
+        
+        for url in node_urls:
+            if not url.startswith(('http://', 'https://')):
+                raise HTTPException(status_code=400, detail=f"Invalid URL format: {url}")
+        
+        traffic_collector = TrafficCollector(node_urls)
+        component_manager.set_component('traffic_collector', traffic_collector)
+        
+        # Start collection in background
+        asyncio.create_task(traffic_collector.start_collection())
+        
+        logger.info(f"Traffic collection started by user {current_user.username} for nodes: {node_urls}")
+        return {
+            "message": "Traffic collection started",
+            "nodes": node_urls,
+            "timestamp": datetime.now().isoformat()
+        }
     
-    # Start collection in background
-    asyncio.create_task(traffic_collector.start_collection())
-    
-    return {
-        "message": "Traffic collection started",
-        "nodes": node_urls,
-        "timestamp": datetime.now().isoformat()
-    }
+    except Exception as e:
+        logger.error(f"Failed to start traffic collection: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start traffic collection: {str(e)}")
 
 
 @app.get("/api/traffic/stats")
-async def get_traffic_stats():
-    """Get traffic collection statistics"""
+@rate_limit("30/minute")
+async def get_traffic_stats(current_user: TokenData = require_viewer()):
+    """Get traffic collection statistics - requires authentication"""
+    traffic_collector = component_manager.get_component('traffic_collector')
     if traffic_collector is None:
         return {"message": "Traffic collection not started", "total_requests": 0}
     
-    recent_requests = traffic_collector.get_recent_requests(100)
+    try:
+        recent_requests = traffic_collector.get_recent_requests(100)
+        
+        return {
+            "total_requests": len(traffic_collector.collected_requests),
+            "recent_requests": len(recent_requests),
+            "is_collecting": traffic_collector.is_collecting,
+            "timestamp": datetime.now().isoformat()
+        }
     
-    return {
-        "total_requests": len(traffic_collector.collected_requests),
-        "recent_requests": len(recent_requests),
-        "is_collecting": traffic_collector.is_collecting,
-        "timestamp": datetime.now().isoformat()
-    }
+    except Exception as e:
+        logger.error(f"Failed to get traffic stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get traffic stats: {str(e)}")
 
 
 @app.post("/api/processing/start")
-async def start_real_time_processing():
+@rate_limit("3/minute")
+async def start_real_time_processing(current_user: TokenData = require_operator()):
     """Start real-time processing of traffic"""
-    global real_time_processor, is_processing
-    
     logger.info("API ENDPOINT: Starting real-time processing...")
     
-    if ml_engine is None or not ml_engine.is_trained:
-        logger.error("API ENDPOINT: ML engine is not trained!")
-        raise HTTPException(status_code=400, detail="ML engine must be trained first")
+    # Use proper synchronization for state management
+    with state_lock:
+        if system_state['is_processing']:
+            raise HTTPException(status_code=400, detail="Real-time processing is already running")
+        
+        # Check component availability with proper locking
+        ml_engine = component_manager.get_component('ml_engine')
+        traffic_collector = component_manager.get_component('traffic_collector')
+        
+        if ml_engine is None or not ml_engine.is_trained:
+            logger.error("API ENDPOINT: ML engine is not trained!")
+            raise HTTPException(status_code=400, detail="ML engine must be trained first")
+        
+        if traffic_collector is None:
+            logger.error("API ENDPOINT: Traffic collector is not initialized!")
+            raise HTTPException(status_code=400, detail="Traffic collector must be initialized first")
+        
+        # Initialize real-time processor if needed
+        real_time_processor = component_manager.get_component('real_time_processor')
+        if real_time_processor is None:
+            try:
+                real_time_processor = RealTimeProcessor(ml_engine)
+                component_manager.set_component('real_time_processor', real_time_processor)
+                logger.info("API ENDPOINT: Created new RealTimeProcessor")
+            except Exception as e:
+                logger.error(f"Failed to create RealTimeProcessor: {e}")
+                raise HTTPException(status_code=500, detail=f"Failed to initialize real-time processor: {str(e)}")
+        
+        # Set processing flag with proper synchronization
+        system_state['is_processing'] = True
+        logger.info("API ENDPOINT: Real-time processing flag set to True")
     
-    if traffic_collector is None:
-        logger.error("API ENDPOINT: Traffic collector is not initialized!")
-        raise HTTPException(status_code=400, detail="Traffic collector must be initialized first")
-    
-    if real_time_processor is None:
-        real_time_processor = RealTimeProcessor(ml_engine)
-        logger.info("API ENDPOINT: Created new RealTimeProcessor")
-    
-    # Set processing flag first
-    is_processing = True
-    logger.info(f"API ENDPOINT: Set is_processing to {is_processing}")
-    
-    # Start background tasks to process collected traffic and threats
-    logger.info("API ENDPOINT: Creating traffic processing task...")
-    asyncio.create_task(process_traffic_continuously())
-    logger.info("API ENDPOINT: Creating threat processing task...")
-    asyncio.create_task(process_threats_continuously())
-    logger.info("API ENDPOINT: Both tasks created!")
+    # Start background tasks with error handling
+    try:
+        logger.info("API ENDPOINT: Creating traffic processing task...")
+        asyncio.create_task(process_traffic_continuously())
+        logger.info("API ENDPOINT: Creating threat processing task...")
+        asyncio.create_task(process_threats_continuously())
+        logger.info("API ENDPOINT: Both tasks created!")
+    except Exception as e:
+        # Rollback processing state if task creation fails
+        with state_lock:
+            system_state['is_processing'] = False
+        logger.error(f"Failed to start background tasks: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to start background processing: {str(e)}")
     
     return {
         "message": "Real-time processing started",
@@ -631,17 +1114,25 @@ async def start_real_time_processing():
 
 async def process_traffic_continuously():
     """Continuously process traffic from the traffic collector"""
-    global traffic_collector, real_time_processor, is_processing
+    logger.info("Starting continuous traffic processing...")
     
-    while is_processing:
+    # Get current processing state with proper synchronization
+    def is_processing_active():
+        with state_lock:
+            return system_state['is_processing']
+    
+    while is_processing_active():
         try:
-            print(f"Processing cycle - is_processing: {is_processing}")
-            if traffic_collector and hasattr(traffic_collector, 'collected_requests'):
-                print(f"Traffic collector has {len(traffic_collector.collected_requests)} collected requests")
+            # Get components safely
+            traffic_collector = component_manager.get_component('traffic_collector')
+            real_time_processor = component_manager.get_component('real_time_processor')
+            
+            if traffic_collector and real_time_processor and hasattr(traffic_collector, 'collected_requests'):
+                logger.debug(f"Traffic collector has {len(traffic_collector.collected_requests)} collected requests")
                 
                 # Get recent requests and process a copy to avoid race conditions
                 requests_to_process = traffic_collector.get_recent_requests(100)
-                print(f"Found {len(requests_to_process)} requests to process")
+                logger.debug(f"Found {len(requests_to_process)} requests to process")
                 
                 if requests_to_process:
                     # Process on a copy and remove processed requests afterward
@@ -649,6 +1140,11 @@ async def process_traffic_continuously():
                     
                     for request in requests_to_process:
                         try:
+                            # Check if we should continue processing
+                            if not is_processing_active():
+                                logger.info("Processing stopped during request processing")
+                                break
+                                
                             # Use node_id from the request
                             node_id = request.node_id
                             logger.debug(f"Processing request with node_id: {node_id} from {request.url}")
@@ -717,13 +1213,20 @@ async def process_traffic_continuously():
 
 async def process_threats_continuously():
     """Continuously process threats and generate rules"""
-    global is_processing
-    
     logger.info("THREAT PROCESSOR: Starting threat processing loop!")
     
-    while is_processing:
+    # Get current processing state with proper synchronization
+    def is_processing_active():
+        with state_lock:
+            return system_state['is_processing']
+    
+    while is_processing_active():
         try:
-            logger.debug(f"THREAT PROCESSOR: Threat processing cycle - is_processing: {is_processing}")
+            # Get components safely
+            traffic_collector = component_manager.get_component('traffic_collector')
+            real_time_processor = component_manager.get_component('real_time_processor')
+            waf_rule_generator = component_manager.get_component('waf_rule_generator')
+            
             logger.debug(f"THREAT PROCESSOR: Components check - traffic_collector: {traffic_collector is not None}, real_time_processor: {real_time_processor is not None}, waf_rule_generator: {waf_rule_generator is not None}")
             
             if traffic_collector and real_time_processor and waf_rule_generator:
@@ -732,6 +1235,11 @@ async def process_threats_continuously():
                 logger.info(f"THREAT PROCESSOR: Threat processor found {len(recent_requests)} recent requests")
                 
                 if recent_requests:
+                    # Check if we should continue processing
+                    if not is_processing_active():
+                        logger.info("THREAT PROCESSOR: Processing stopped during threat analysis")
+                        break
+                    
                     # Convert to dict format for ML processing
                     request_dicts = [req.to_dict() for req in recent_requests]
                     
@@ -783,8 +1291,9 @@ async def process_threats_continuously():
 
 
 @app.get("/api/threats")
-async def get_recent_threats() -> ThreatResponse:
-    """Get recent threat detections"""
+@rate_limit("20/minute")
+async def get_recent_threats(current_user: TokenData = require_viewer()) -> ThreatResponse:
+    """Get recent threat detections - requires authentication"""
     if real_time_processor is None:
         return ThreatResponse(threats=[], total_threats=0, threat_patterns={})
     
@@ -799,8 +1308,9 @@ async def get_recent_threats() -> ThreatResponse:
 
 
 @app.get("/api/rules")
-async def get_active_rules():
-    """Get currently active WAF rules"""
+@rate_limit("20/minute")
+async def get_active_rules(current_user: TokenData = require_viewer()):
+    """Get currently active WAF rules - requires authentication"""
     if waf_rule_generator is None:
         return {"rules": [], "total_rules": 0}
     
@@ -814,89 +1324,302 @@ async def get_active_rules():
 
 
 @app.post("/api/rules/deploy")
-async def deploy_rules(request: RuleDeploymentRequest):
-    """Deploy WAF rules to nginx nodes"""
+@rate_limit("3/minute")
+async def deploy_rules(
+    request: SecureRuleDeploymentRequest,
+    current_user: TokenData = require_admin()
+):
+    """Deploy WAF rules to nginx nodes - requires admin role"""
+    nginx_manager = component_manager.get_component('nginx_manager')
     if nginx_manager is None:
         raise HTTPException(status_code=404, detail="No nginx manager configured")
     
+    waf_rule_generator = component_manager.get_component('waf_rule_generator')
     if waf_rule_generator is None:
         raise HTTPException(status_code=500, detail="WAF rule generator not initialized")
     
-    # Convert dict rules back to WAFRule objects if needed
-    rules = waf_rule_generator.get_active_rules()
-    
-    if rule_optimizer:
-        rules = rule_optimizer.optimize_rules(rules)
-    
-    # Generate nginx configuration
-    nginx_config = waf_rule_generator.generate_nginx_config(rules)
-    
-    # Deploy to specified nodes or all nodes
-    if request.node_ids:
-        # Deploy to specific nodes (would need to implement selective deployment)
-        deployment_results = await nginx_manager.deploy_rules_to_all_nodes(nginx_config)
-    else:
-        deployment_results = await nginx_manager.deploy_rules_to_all_nodes(nginx_config)
-    
-    return {
-        "message": "Rules deployment initiated",
-        "deployment_results": deployment_results,
-        "total_rules": len(rules),
-        "timestamp": datetime.now().isoformat()
-    }
+    try:
+        # Convert dict rules back to WAFRule objects if needed
+        rules = waf_rule_generator.get_active_rules()
+        
+        rule_optimizer = component_manager.get_component('rule_optimizer')
+        if rule_optimizer:
+            try:
+                rules = rule_optimizer.optimize_rules(rules)
+                logger.info("Rules optimized successfully")
+            except Exception as e:
+                logger.warning(f"Rule optimization failed: {e}, proceeding with original rules")
+        
+        # Generate nginx configuration with validation
+        try:
+            nginx_config = waf_rule_generator.generate_nginx_config(rules)
+            
+            # Validate nginx configuration before deployment
+            if hasattr(nginx_manager, '_validate_nginx_config'):
+                if not nginx_manager._validate_nginx_config(nginx_config):
+                    raise HTTPException(status_code=400, detail="Generated nginx configuration is invalid")
+            
+        except Exception as e:
+            logger.error(f"Failed to generate nginx configuration: {e}")
+            raise HTTPException(status_code=500, detail=f"Configuration generation failed: {str(e)}")
+        
+        # Deploy to specified nodes or all nodes with comprehensive error handling
+        try:
+            if request.node_ids:
+                # Deploy to specific nodes (would need to implement selective deployment)
+                deployment_results = await nginx_manager.deploy_rules_to_all_nodes(nginx_config)
+            else:
+                deployment_results = await nginx_manager.deploy_rules_to_all_nodes(nginx_config)
+            
+            # Check deployment results
+            failed_deployments = [node_id for node_id, success in deployment_results.items() if not success]
+            if failed_deployments:
+                logger.warning(f"Deployment failed for nodes: {failed_deployments}")
+                if len(failed_deployments) == len(deployment_results):
+                    raise HTTPException(status_code=500, detail="Deployment failed on all nodes")
+        
+        except Exception as e:
+            logger.error(f"Deployment error: {e}")
+            raise HTTPException(status_code=500, detail=f"Deployment failed: {str(e)}")
+        
+        logger.info(f"Rules deployed by user {current_user.username}")
+        return {
+            "message": "Rules deployment initiated",
+            "deployment_results": deployment_results,
+            "total_rules": len(rules),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error during rule deployment: {e}")
+        raise HTTPException(status_code=500, detail=f"Deployment error: {str(e)}")
 
 
 @app.get("/api/config/nginx")
-async def get_nginx_config():
-    """Generate and return nginx configuration"""
+@rate_limit("10/minute")
+async def get_nginx_config(current_user: TokenData = require_operator()):
+    """Generate and return nginx configuration - requires operator role"""
     if waf_rule_generator is None:
         raise HTTPException(status_code=500, detail="WAF rule generator not initialized")
     
-    active_rules = waf_rule_generator.get_active_rules()
-    nginx_config = waf_rule_generator.generate_nginx_config(active_rules)
+    try:
+        active_rules = waf_rule_generator.get_active_rules()
+        nginx_config = waf_rule_generator.generate_nginx_config(active_rules)
+        
+        return {
+            "config": nginx_config,
+            "total_rules": len(active_rules),
+            "timestamp": datetime.now().isoformat()
+        }
     
-    return {
-        "config": nginx_config,
-        "total_rules": len(active_rules),
-        "timestamp": datetime.now().isoformat()
-    }
+    except Exception as e:
+        logger.error(f"Failed to generate nginx config: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate nginx config: {str(e)}")
 
 
 @app.post("/api/processing/stop")
-async def stop_processing():
-    """Stop real-time processing"""
-    global is_processing
-    is_processing = False
+@rate_limit("5/minute")
+async def stop_processing(current_user: TokenData = require_operator()):
+    """Stop real-time processing - requires operator role"""
+    try:
+        with state_lock:
+            if not system_state['is_processing']:
+                raise HTTPException(status_code=400, detail="Real-time processing is not currently running")
+            
+            system_state['is_processing'] = False
+            logger.info(f"Real-time processing stopped by user {current_user.username}")
+        
+        # Allow some time for background tasks to gracefully stop
+        await asyncio.sleep(1)
+        
+        return {
+            "message": "Real-time processing stopped",
+            "timestamp": datetime.now().isoformat()
+        }
     
-    return {
-        "message": "Real-time processing stopped",
-        "timestamp": datetime.now().isoformat()
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to stop processing: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to stop processing: {str(e)}")
 
 
 @app.get("/api/stats")
-async def get_system_stats():
-    """Get overall system statistics"""
-    stats = {
-        "timestamp": datetime.now().isoformat(),
-        "components": {
-            "ml_engine_trained": ml_engine is not None and ml_engine.is_trained,
-            "traffic_collection_active": traffic_collector is not None and traffic_collector.is_collecting,
-            "real_time_processing": is_processing,
-            "nginx_nodes_count": len(nginx_manager.nodes) if nginx_manager else 0
-        },
-        "traffic": {
-            "total_requests": len(traffic_collector.collected_requests) if traffic_collector else 0,
-            "recent_threats": len(real_time_processor.recent_threats) if real_time_processor else 0
-        },
-        "rules": {
-            "active_rules": len(waf_rule_generator.get_active_rules()) if waf_rule_generator else 0,
-            "deployment_history": len(nginx_manager.deployment_history) if nginx_manager else 0
+@rate_limit("20/minute")
+async def get_system_stats(current_user: TokenData = require_viewer()):
+    """Get overall system statistics - requires authentication"""
+    try:
+        # Get components safely
+        ml_engine = component_manager.get_component('ml_engine')
+        traffic_collector = component_manager.get_component('traffic_collector')
+        real_time_processor = component_manager.get_component('real_time_processor')
+        waf_rule_generator = component_manager.get_component('waf_rule_generator')
+        nginx_manager = component_manager.get_component('nginx_manager')
+        
+        # Get processing state safely
+        with state_lock:
+            is_processing = system_state['is_processing']
+        
+        stats = {
+            "timestamp": datetime.now().isoformat(),
+            "components": {
+                "ml_engine_trained": ml_engine is not None and ml_engine.is_trained,
+                "traffic_collection_active": traffic_collector is not None and traffic_collector.is_collecting,
+                "real_time_processing": is_processing,
+                "nginx_nodes_count": len(nginx_manager.nodes) if nginx_manager else 0
+            },
+            "traffic": {
+                "total_requests": len(traffic_collector.collected_requests) if traffic_collector else 0,
+                "recent_requests": len(traffic_collector.get_recent_requests(100)) if traffic_collector else 0
+            },
+            "threats": {
+                "total_threats": len(real_time_processor.recent_threats) if real_time_processor else 0
+            },
+            "rules": {
+                "active_rules": len(waf_rule_generator.get_active_rules()) if waf_rule_generator else 0
+            }
         }
-    }
+        
+        return stats
     
-    return stats
+    except Exception as e:
+        logger.error(f"Failed to get system stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get system stats: {str(e)}")
 
+
+async def process_traffic_continuously():
+    """Continuously process traffic from the traffic collector"""
+    global traffic_collector, real_time_processor, is_processing
+    
+    logger.info("Starting continuous traffic processing...")
+    
+    while is_processing:
+        try:
+            logger.debug(f"Processing cycle - is_processing: {is_processing}")
+            
+            if traffic_collector and hasattr(traffic_collector, 'collected_requests'):
+                logger.debug(f"Traffic collector has {len(traffic_collector.collected_requests)} collected requests")
+                
+                # Get recent requests to process
+                recent_requests = traffic_collector.get_recent_requests(100)
+                
+                if recent_requests and real_time_processor:
+                    logger.debug(f"Processing {len(recent_requests)} recent requests")
+                    
+                    # Process requests for threats
+                    for request in recent_requests:
+                        try:
+                            features = traffic_collector.extract_features(request)
+                            prediction = real_time_processor.process_request(features)
+                            
+                            if prediction and prediction.threat_score < -0.1:
+                                logger.info(f"Threat detected: {prediction.threat_type} (score: {prediction.threat_score})")
+                                threats_detected.labels(threat_type=prediction.threat_type).inc()
+                                
+                        except Exception as e:
+                            logger.error(f"Error processing request: {e}")
+                            continue
+                
+                else:
+                    logger.debug("No recent requests or real_time_processor not available")
+            
+            else:
+                logger.debug("Traffic collector not available or no collected_requests attribute")
+            
+            # Sleep between processing cycles
+            await asyncio.sleep(1)
+            
+        except Exception as e:
+            logger.error(f"Error in traffic processing loop: {e}")
+            await asyncio.sleep(5)  # Wait longer on error
+    
+    logger.info("Traffic processing stopped")
+
+
+async def process_threats_continuously():
+    """Continuously process detected threats and generate rules"""
+    global real_time_processor, waf_rule_generator, is_processing
+    
+    logger.info("Starting continuous threat processing...")
+    
+    while is_processing:
+        try:
+            if real_time_processor and waf_rule_generator:
+                # Get recent threats
+                recent_threats = real_time_processor.get_recent_threats(limit=50)
+                
+                if recent_threats:
+                    logger.debug(f"Processing {len(recent_threats)} recent threats for rule generation")
+                    
+                    # Generate rules based on threats
+                    new_rules = waf_rule_generator.generate_rules_from_threats(recent_threats)
+                    
+                    if new_rules:
+                        logger.info(f"Generated {len(new_rules)} new WAF rules")
+                        # Update active rules count metric
+                        rules_active.set(len(waf_rule_generator.get_active_rules()))
+            
+            # Sleep between threat processing cycles
+            await asyncio.sleep(10)
+            
+        except Exception as e:
+            logger.error(f"Error in threat processing loop: {e}")
+            await asyncio.sleep(30)  # Wait longer on error
+    
+    logger.info("Threat processing stopped")
+
+
+# ============= TLS/HTTPS CONFIGURATION =============
+
+def create_ssl_context():
+    """Create SSL context for HTTPS"""
+    if not config.security.use_https:
+        return None
+    
+    try:
+        ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+        ssl_context.load_cert_chain(
+            config.security.ssl_cert_path,
+            config.security.ssl_key_path
+        )
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = config.security.ssl_verify_mode
+        
+        logger.info("SSL context created successfully")
+        return ssl_context
+    
+    except Exception as e:
+        logger.error(f"Failed to create SSL context: {e}")
+        raise
+
+
+# ============= SERVER STARTUP =============
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Create SSL context if HTTPS is enabled
+    ssl_context = create_ssl_context()
+    
+    # Configure uvicorn
+    uvicorn_config = {
+        "host": config.api_host,
+        "port": config.api_port,
+        "log_level": config.log_level.lower(),
+        "access_log": True,
+        "server_header": False,  # Security: don't reveal server info
+        "date_header": False     # Security: don't reveal server time
+    }
+    
+    if ssl_context:
+        uvicorn_config["ssl_context"] = ssl_context
+        logger.info(f"Starting HTTPS server on {config.api_host}:{config.api_port}")
+    else:
+        logger.info(f"Starting HTTP server on {config.api_host}:{config.api_port}")
+    
+    if config.api_debug:
+        logger.warning("Debug mode enabled - disable in production!")
+        uvicorn_config["reload"] = True
+    
+    # Start the server
+    uvicorn.run(app, **uvicorn_config)
