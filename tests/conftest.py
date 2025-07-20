@@ -1,545 +1,231 @@
 #!/usr/bin/env python3
 """
-Test configuration and fixtures for the Nginx WAF AI test suite.
-
-This module provides common test configurations, fixtures, and utilities
-used across multiple test modules.
+Minimal test configuration and fixtures for the Nginx WAF AI test suite.
 """
 
 import pytest
 import os
 import tempfile
 import json
-import asyncio
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
-from unittest.mock import Mock, patch
+from typing import Dict, List, Any
+from unittest.mock import Mock, MagicMock
 
-# Import project modules
-from src.config import Config
-from src.ml_engine import MLEngine, ThreatPrediction
-from src.traffic_collector import TrafficCollector, HttpRequest
-from src.waf_rule_generator import WAFRuleGenerator, WAFRule, RuleType, RuleAction
-from src.nginx_manager import NginxManager, NginxNode
-from src.auth import create_access_token
+# Basic test configuration
+@pytest.fixture
+def test_config():
+    """Basic test configuration"""
+    return {
+        'api_host': '127.0.0.1',
+        'api_port': 8000,
+        'api_debug': True,
+        'redis_url': 'redis://localhost:6379'
+    }
 
-
-# Test data constants
-TEST_BASE_URL = "http://localhost:8000"
-TEST_ADMIN_USER = {"username": "admin", "password": "admin123"}
-TEST_OPERATOR_USER = {"username": "operator", "password": "Operator123!"}
-TEST_VIEWER_USER = {"username": "viewer", "password": "Viewer123!"}
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
+# Temporary directory for test files
 @pytest.fixture
 def temp_dir():
-    """Create a temporary directory for test files"""
+    """Temporary directory for test files"""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield tmpdir
 
-
+# Sample data fixtures
 @pytest.fixture
-def test_config():
-    """Create a test configuration"""
-    config = Config()
-    config.api_host = "localhost"
-    config.api_port = 8000
-    config.api_debug = True
-    config.log_level = "DEBUG"
-    return config
-
-
-@pytest.fixture
-def mock_ml_engine():
-    """Create a mock ML engine for testing"""
-    engine = Mock(spec=MLEngine)
-    engine.is_trained = True
-    engine.model_path = "/tmp/test_model.joblib"
-    
-    # Mock training method
-    engine.train.return_value = True
-    
-    # Mock prediction method
-    engine.predict_threats.return_value = [
-        ThreatPrediction(
-            threat_score=-0.8,
-            threat_type="sql_injection",
-            confidence=0.9,
-            features_used=["url_contains_sql", "suspicious_patterns"]
-        ),
-        ThreatPrediction(
-            threat_score=-0.6,
-            threat_type="xss_attack",
-            confidence=0.8,
-            features_used=["url_contains_script"]
-        )
-    ]
-    
-    return engine
-
-
-@pytest.fixture
-def mock_traffic_collector():
-    """Create a mock traffic collector for testing"""
-    collector = Mock(spec=TrafficCollector)
-    collector.is_collecting = False
-    collector.collected_requests = []
-    
-    # Mock HTTP requests
-    sample_requests = [
-        HttpRequest(
-            timestamp=datetime.now(),
-            method="GET",
-            url="/admin/login?user=admin' OR 1=1--",
-            headers={"User-Agent": "Mozilla/5.0"},
-            body=None,
-            source_ip="192.168.1.100",
-            user_agent="Mozilla/5.0",
-            content_length=0
-        ),
-        HttpRequest(
-            timestamp=datetime.now(),
-            method="GET",
-            url="/search?q=<script>alert('xss')</script>",
-            headers={"User-Agent": "Mozilla/5.0"},
-            body=None,
-            source_ip="192.168.1.101",
-            user_agent="Mozilla/5.0",
-            content_length=0
-        )
-    ]
-    
-    collector.get_recent_requests.return_value = sample_requests
-    collector.extract_features.return_value = {
-        "url_length": 30,
-        "body_length": 0,
-        "headers_count": 1,
-        "contains_sql_patterns": True,
-        "contains_xss_patterns": False,
-        "method": "GET"
-    }
-    
-    return collector
-
-
-@pytest.fixture
-def mock_waf_rule_generator():
-    """Create a mock WAF rule generator for testing"""
-    generator = Mock(spec=WAFRuleGenerator)
-    
-    # Mock rules
-    sample_rules = [
-        WAFRule(
-            rule_id="test-rule-1",
-            rule_type=RuleType.URL_PATTERN,
-            pattern=".*admin.*",
-            action=RuleAction.BLOCK,
-            priority=90,
-            description="Block admin access"
-        ),
-        WAFRule(
-            rule_id="test-rule-2",
-            rule_type=RuleType.IP_BLOCK,
-            pattern="192.168.1.100",
-            action=RuleAction.BLOCK,
-            priority=95,
-            description="Block malicious IP"
-        )
-    ]
-    
-    generator.get_active_rules.return_value = sample_rules
-    generator.generate_rules_from_threats.return_value = sample_rules
-    generator.generate_nginx_config.return_value = "# Test nginx config\nlocation ~ /admin { deny all; }"
-    
-    return generator
-
-
-@pytest.fixture
-def mock_nginx_manager():
-    """Create a mock nginx manager for testing"""
-    manager = Mock(spec=NginxManager)
-    
-    # Mock nodes
-    sample_nodes = [
-        NginxNode(
-            node_id="test-node-1",
-            hostname="web-1.example.com",
-            ssh_host="192.168.1.10",
-            ssh_port=22,
-            ssh_username="nginx",
-            ssh_key_path="/home/nginx/.ssh/id_rsa",
-            nginx_config_path="/etc/nginx/conf.d",
-            nginx_reload_command="sudo systemctl reload nginx",
-            api_endpoint="http://192.168.1.10:8080"
-        )
-    ]
-    
-    manager.nodes = sample_nodes
-    manager.list_nodes.return_value = sample_nodes
-    manager.get_node.return_value = sample_nodes[0]
-    manager.add_node.return_value = True
-    
-    return manager
-
-
-@pytest.fixture
-def test_tokens():
-    """Create test JWT tokens for different user roles"""
-    admin_token = create_access_token(data={"sub": "admin", "roles": ["admin"]})
-    operator_token = create_access_token(data={"sub": "operator", "roles": ["operator"]})
-    viewer_token = create_access_token(data={"sub": "viewer", "roles": ["viewer"]})
-    
-    return {
-        "admin": admin_token,
-        "operator": operator_token,
-        "viewer": viewer_token
-    }
-
-
-@pytest.fixture
-def test_headers(test_tokens):
-    """Create test headers with authorization tokens"""
-    return {
-        "admin": {"Authorization": f"Bearer {test_tokens['admin']}"},
-        "operator": {"Authorization": f"Bearer {test_tokens['operator']}"},
-        "viewer": {"Authorization": f"Bearer {test_tokens['viewer']}"}
-    }
-
-
-@pytest.fixture
-def sample_training_data():
-    """Create sample training data for ML tests"""
-    return {
-        "training_data": [
-            {
-                "timestamp": "2024-01-01T00:00:00Z",
-                "url": "/admin/login?user=admin' OR 1=1--",
-                "source_ip": "192.168.1.100",
-                "user_agent": "Mozilla/5.0 (X11; Linux x86_64)",
-                "url_length": 30,
-                "body_length": 0,
-                "headers_count": 5,
-                "content_length": 0,
-                "has_suspicious_headers": False,
-                "contains_sql_patterns": True,
-                "contains_xss_patterns": False,
-                "method": "GET"
-            },
-            {
-                "timestamp": "2024-01-01T00:01:00Z",
-                "url": "/search?q=<script>alert('xss')</script>",
-                "source_ip": "192.168.1.101",
-                "user_agent": "Mozilla/5.0 (Windows NT 10.0)",
-                "url_length": 25,
-                "body_length": 0,
-                "headers_count": 5,
-                "content_length": 0,
-                "has_suspicious_headers": False,
-                "contains_sql_patterns": False,
-                "contains_xss_patterns": True,
-                "method": "GET"
-            },
-            {
-                "timestamp": "2024-01-01T00:02:00Z",
-                "url": "/normal/page",
-                "source_ip": "192.168.1.102",
-                "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X)",
-                "url_length": 12,
-                "body_length": 0,
-                "headers_count": 5,
-                "content_length": 0,
-                "has_suspicious_headers": False,
-                "contains_sql_patterns": False,
-                "contains_xss_patterns": False,
-                "method": "GET"
-            }
-        ],
-        "labels": ["sql_injection", "xss_attack", "normal"]
-    }
-
-
-@pytest.fixture
-def sample_node_data():
-    """Create sample nginx node data"""
-    return {
-        "node_id": "test-node-api",
-        "hostname": "test.example.com",
-        "ssh_host": "192.168.1.100",
-        "ssh_port": 22,
-        "ssh_username": "nginx",
-        "ssh_key_path": "/home/nginx/.ssh/id_rsa",
-        "nginx_config_path": "/etc/nginx/conf.d",
-        "nginx_reload_command": "sudo systemctl reload nginx",
-        "api_endpoint": "http://192.168.1.100:8080"
-    }
-
-
-@pytest.fixture
-def sample_threat_predictions():
-    """Create sample threat predictions"""
+def sample_traffic_data():
+    """Sample traffic data for testing"""
     return [
-        ThreatPrediction(
-            threat_score=-0.9,
-            threat_type="sql_injection",
-            confidence=0.95,
-            features_used=["url_contains_sql", "suspicious_patterns"],
-            source_ip="192.168.1.100",
-            url="/admin/login?id=1' OR 1=1--",
-            user_agent="Mozilla/5.0 (X11; Linux x86_64)"
-        ),
-        ThreatPrediction(
-            threat_score=-0.8,
-            threat_type="xss_attack",
-            confidence=0.9,
-            features_used=["url_contains_script"],
-            source_ip="192.168.1.101",
-            url="/search?q=<script>alert('test')</script>",
-            user_agent="Mozilla/5.0 (Windows NT 10.0)"
-        ),
-        ThreatPrediction(
-            threat_score=-0.7,
-            threat_type="brute_force",
-            confidence=0.85,
-            features_used=["repeated_requests", "failed_auth"],
-            source_ip="192.168.1.102",
-            url="/login",
-            user_agent="Python/3.8"
-        )
-    ]
-
-
-@pytest.fixture
-def sample_waf_rules():
-    """Create sample WAF rules"""
-    return [
-        WAFRule(
-            rule_id="sql-injection-block",
-            rule_type=RuleType.URL_PATTERN,
-            pattern=".*('|(union)|(select)|(insert)|(drop)).*",
-            action=RuleAction.BLOCK,
-            priority=95,
-            description="Block SQL injection attempts",
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(hours=24)
-        ),
-        WAFRule(
-            rule_id="xss-block",
-            rule_type=RuleType.URL_PATTERN,
-            pattern=".*(script|iframe|object).*",
-            action=RuleAction.BLOCK,
-            priority=90,
-            description="Block XSS attempts",
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(hours=24)
-        ),
-        WAFRule(
-            rule_id="ip-block-malicious",
-            rule_type=RuleType.IP_BLOCK,
-            pattern="192.168.1.100",
-            action=RuleAction.BLOCK,
-            priority=99,
-            description="Block known malicious IP",
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=7)
-        ),
-        WAFRule(
-            rule_id="rate-limit-api",
-            rule_type=RuleType.RATE_LIMIT,
-            pattern="/api/",
-            action=RuleAction.RATE_LIMIT,
-            priority=70,
-            description="Rate limit API endpoints",
-            created_at=datetime.now(),
-            metadata={"rate": "10r/m", "burst": "20"}
-        )
-    ]
-
-
-@pytest.fixture
-def mock_file_system(temp_dir):
-    """Create mock file system for testing"""
-    # Create test directories
-    config_dir = os.path.join(temp_dir, "config")
-    models_dir = os.path.join(temp_dir, "models")
-    logs_dir = os.path.join(temp_dir, "logs")
-    
-    os.makedirs(config_dir, exist_ok=True)
-    os.makedirs(models_dir, exist_ok=True)
-    os.makedirs(logs_dir, exist_ok=True)
-    
-    # Create test configuration files
-    nginx_nodes_config = [
         {
-            "node_id": "test-node-1",
-            "hostname": "web-1.example.com",
-            "ssh_host": "192.168.1.10",
-            "ssh_port": 22,
-            "ssh_username": "nginx",
-            "ssh_key_path": "/home/nginx/.ssh/id_rsa",
-            "nginx_config_path": "/etc/nginx/conf.d",
-            "nginx_reload_command": "sudo systemctl reload nginx",
-            "api_endpoint": "http://192.168.1.10:8080"
+            'timestamp': '2024-01-01T10:00:00Z',
+            'ip': '192.168.1.100',
+            'method': 'GET',
+            'url': '/api/users',
+            'user_agent': 'Mozilla/5.0',
+            'status_code': 200,
+            'response_size': 1024
+        },
+        {
+            'timestamp': '2024-01-01T10:01:00Z',
+            'ip': '192.168.1.101',
+            'method': 'POST',
+            'url': '/api/login',
+            'user_agent': 'curl/7.68.0',
+            'status_code': 401,
+            'response_size': 256
         }
     ]
-    
-    with open(os.path.join(config_dir, "nginx_nodes.json"), "w") as f:
-        json.dump(nginx_nodes_config, f, indent=2)
-    
-    # Create test model file
-    model_file = os.path.join(models_dir, "test_model.joblib")
-    with open(model_file, "w") as f:
-        f.write("# Mock model file")
-    
-    return {
-        "temp_dir": temp_dir,
-        "config_dir": config_dir,
-        "models_dir": models_dir,
-        "logs_dir": logs_dir,
-        "nginx_nodes_config": os.path.join(config_dir, "nginx_nodes.json"),
-        "model_file": model_file
-    }
 
-
-class TestDataGenerator:
-    """Utility class for generating test data"""
-    
-    @staticmethod
-    def generate_http_requests(count: int = 10, include_malicious: bool = True) -> List[HttpRequest]:
-        """Generate HTTP requests for testing"""
-        requests = []
-        
-        # Normal requests
-        normal_urls = [
-            "/",
-            "/home",
-            "/about",
-            "/contact",
-            "/products",
-            "/services"
-        ]
-        
-        # Malicious requests
-        malicious_urls = [
-            "/admin/login?user=admin' OR 1=1--",
-            "/search?q=<script>alert('xss')</script>",
-            "/api/users?id=1 UNION SELECT * FROM passwords",
-            "/upload.php?file=../../etc/passwd",
-            "/login.php?username=admin&password=' OR '1'='1"
-        ]
-        
-        for i in range(count):
-            if include_malicious and i % 3 == 0:
-                url = malicious_urls[i % len(malicious_urls)]
-            else:
-                url = normal_urls[i % len(normal_urls)]
-            
-            request = HttpRequest(
-                timestamp=datetime.now() - timedelta(minutes=i),
-                method="GET",
-                url=url,
-                headers={"User-Agent": f"TestAgent/{i}"},
-                body=None,
-                source_ip=f"192.168.1.{100 + (i % 50)}",
-                user_agent=f"TestAgent/{i}",
-                content_length=0
-            )
-            
-            requests.append(request)
-        
-        return requests
-    
-    @staticmethod
-    def generate_threat_predictions(count: int = 5) -> List[ThreatPrediction]:
-        """Generate threat predictions for testing"""
-        threat_types = ["sql_injection", "xss_attack", "brute_force", "directory_traversal", "command_injection"]
-        predictions = []
-        
-        for i in range(count):
-            prediction = ThreatPrediction(
-                threat_score=-0.5 - (i * 0.1),  # Varying threat scores
-                threat_type=threat_types[i % len(threat_types)],
-                confidence=0.7 + (i * 0.05),
-                features_used=[f"feature_{j}" for j in range(3)],
-                source_ip=f"192.168.1.{100 + i}",
-                url=f"/test/path/{i}",
-                user_agent=f"TestAgent/{i}"
-            )
-            predictions.append(prediction)
-        
-        return predictions
-
-
-# Utility functions for tests
-def assert_valid_response_time(response_time: float, max_time: float = 2.0):
-    """Assert that response time is within acceptable limits"""
-    assert response_time > 0, "Response time should be positive"
-    assert response_time < max_time, f"Response time {response_time:.3f}s exceeds maximum {max_time}s"
-
-
-def assert_valid_http_status(status_code: int, expected_codes: List[int] = None):
-    """Assert that HTTP status code is valid"""
-    if expected_codes is None:
-        expected_codes = [200, 201, 202, 204]
-    
-    assert status_code in expected_codes, f"HTTP status {status_code} not in expected codes {expected_codes}"
-
-
-def assert_valid_json_response(response_data: Dict[str, Any], required_keys: List[str] = None):
-    """Assert that JSON response has required structure"""
-    assert isinstance(response_data, dict), "Response should be a JSON object"
-    
-    if required_keys:
-        for key in required_keys:
-            assert key in response_data, f"Required key '{key}' missing from response"
-
-
-def assert_security_headers_present(headers: Dict[str, str]):
-    """Assert that security headers are present"""
-    security_headers = [
-        "X-Content-Type-Options",
-        "X-Frame-Options", 
-        "X-XSS-Protection"
+@pytest.fixture
+def sample_threats():
+    """Sample threat data for testing"""
+    return [
+        {
+            'timestamp': '2024-01-01T10:00:00Z',
+            'ip': '10.0.0.1',
+            'threat_type': 'sql_injection',
+            'confidence': 0.95,
+            'details': {'pattern': 'UNION SELECT', 'url': '/search?q=\' OR 1=1'}
+        },
+        {
+            'timestamp': '2024-01-01T10:01:00Z',
+            'ip': '10.0.0.2',
+            'threat_type': 'brute_force',
+            'confidence': 0.88,
+            'details': {'attempts': 25, 'url': '/login'}
+        }
     ]
+
+@pytest.fixture
+def mock_redis():
+    """Mock Redis client"""
+    mock = MagicMock()
+    mock.ping.return_value = True
+    mock.get.return_value = None
+    mock.set.return_value = True
+    mock.delete.return_value = 1
+    return mock
+
+@pytest.fixture
+def mock_ssh_client():
+    """Mock SSH client for testing nginx manager"""
+    mock = MagicMock()
+    mock.connect.return_value = None
+    mock.exec_command.return_value = (MagicMock(), MagicMock(), MagicMock())
+    return mock
+
+# Test users and authentication
+@pytest.fixture
+def test_users():
+    """Sample test users"""
+    return [
+        {
+            'username': 'admin',
+            'email': 'admin@example.com',
+            'password': 'admin123',
+            'role': 'admin',
+            'is_active': True
+        },
+        {
+            'username': 'user',
+            'email': 'user@example.com', 
+            'password': 'user123',
+            'role': 'user',
+            'is_active': True
+        },
+        {
+            'username': 'viewer',
+            'email': 'viewer@example.com',
+            'password': 'viewer123', 
+            'role': 'viewer',
+            'is_active': True
+        }
+    ]
+
+@pytest.fixture
+def admin_token():
+    """Admin JWT token for testing"""
+    try:
+        from src.auth import create_access_token
+        return create_access_token(
+            data={'sub': 'admin', 'role': 'admin'}
+        )
+    except ImportError:
+        return 'mock-admin-token'
+
+@pytest.fixture
+def user_token():
+    """Regular user JWT token for testing"""
+    try:
+        from src.auth import create_access_token
+        return create_access_token(
+            data={'sub': 'user', 'role': 'user'}
+        )
+    except ImportError:
+        return 'mock-user-token'
+
+# HTTP client fixtures
+@pytest.fixture
+def api_client():
+    """HTTP client for API testing"""
+    try:
+        import httpx
+        return httpx.Client(base_url="http://localhost:8000")
+    except ImportError:
+        return MagicMock()
+
+@pytest.fixture
+def async_api_client():
+    """Async HTTP client for API testing"""
+    try:
+        import httpx
+        return httpx.AsyncClient(base_url="http://localhost:8000")
+    except ImportError:
+        return MagicMock()
+
+# Test data directories
+@pytest.fixture(scope="session")
+def test_data_dir():
+    """Directory containing test data files"""
+    return os.path.join(os.path.dirname(__file__), '..', 'data')
+
+# Sample WAF rules
+@pytest.fixture
+def sample_waf_rules():
+    """Sample WAF rules for testing"""
+    return [
+        {
+            'id': 'rule_001',
+            'name': 'Block SQL Injection',
+            'description': 'Block common SQL injection patterns',
+            'pattern': r'(\bUNION\b|\bSELECT\b|\bDROP\b).*(\bFROM\b|\bWHERE\b)',
+            'action': 'block',
+            'priority': 100,
+            'enabled': True
+        },
+        {
+            'id': 'rule_002', 
+            'name': 'Rate Limit',
+            'description': 'Rate limit requests from same IP',
+            'pattern': 'ip_rate_limit',
+            'action': 'rate_limit',
+            'priority': 50,
+            'enabled': True,
+            'rate_limit': {'requests': 100, 'window': 60}
+        }
+    ]
+
+# Environment setup
+@pytest.fixture(autouse=True)
+def setup_test_env():
+    """Setup test environment variables"""
+    original_env = os.environ.copy()
     
-    present_headers = [h for h in security_headers if h in headers]
-    assert len(present_headers) > 0, f"No security headers found. Expected one of: {security_headers}"
+    # Set test environment variables
+    os.environ['PYTEST_CURRENT_TEST'] = 'true'
+    os.environ['WAF_API_DEBUG'] = 'true'
+    os.environ['WAF_JWT_SECRET'] = 'test-secret-key-for-testing-only'
+    
+    yield
+    
+    # Restore original environment
+    os.environ.clear()
+    os.environ.update(original_env)
 
+# Skip decorators for integration tests
+def skip_if_no_redis():
+    """Skip test if Redis is not available"""
+    try:
+        import redis
+        r = redis.Redis(host='localhost', port=6379, decode_responses=True)
+        r.ping()
+        return pytest.mark.skipif(False, reason="Redis available")
+    except:
+        return pytest.mark.skipif(True, reason="Redis not available")
 
-# Test markers for categorizing tests
-pytestmark = [
-    pytest.mark.unit,  # Unit tests
-    pytest.mark.integration,  # Integration tests
-    pytest.mark.e2e,  # End-to-end tests
-    pytest.mark.performance,  # Performance tests
-    pytest.mark.security,  # Security tests
-]
-
-
-# Skip conditions for different test environments
-skip_if_no_docker = pytest.mark.skipif(
-    os.system("docker --version") != 0,
-    reason="Docker not available"
-)
-
-skip_if_no_api = pytest.mark.skipif(
-    os.environ.get("SKIP_API_TESTS", "false").lower() == "true",
-    reason="API tests disabled"
-)
-
-skip_if_no_ml = pytest.mark.skipif(
-    os.environ.get("SKIP_ML_TESTS", "false").lower() == "true",
-    reason="ML tests disabled"
-)
-
-skip_performance_tests = pytest.mark.skipif(
-    os.environ.get("SKIP_PERFORMANCE_TESTS", "false").lower() == "true",
-    reason="Performance tests disabled"
-)
+def skip_if_no_docker():
+    """Skip test if Docker is not available"""
+    try:
+        import docker
+        client = docker.from_env()
+        client.ping()
+        return pytest.mark.skipif(False, reason="Docker available")
+    except:
+        return pytest.mark.skipif(True, reason="Docker not available")
