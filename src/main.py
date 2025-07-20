@@ -22,6 +22,9 @@ from fastapi.security import HTTPBearer
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 from loguru import logger
 from pydantic import BaseModel
+
+import slowapi
+
 # Note: slowapi might not be installed, implement custom rate limiting if needed
 try:
     from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -487,7 +490,6 @@ async def shutdown_components():
 # ============= AUTHENTICATION ENDPOINTS =============
 
 @app.post("/auth/login", response_model=AuthResponse)
-@rate_limit("5/minute")
 async def login(request: LoginRequest):
     """Authenticate user and return JWT token"""
     try:
@@ -516,7 +518,6 @@ async def login(request: LoginRequest):
 
 
 @app.post("/auth/api-key")
-@rate_limit("3/minute")
 async def generate_api_key(
     request: ApiKeyRequest,
     current_user: TokenData = require_admin()
@@ -535,7 +536,6 @@ async def generate_api_key(
 
 
 @app.post("/auth/users")
-@rate_limit("5/minute")
 async def create_user(
     request: UserManagementRequest,
     current_user: TokenData = require_admin()
@@ -559,7 +559,6 @@ async def create_user(
 
 
 @app.get("/auth/users")
-@rate_limit("10/minute")
 async def list_users(request: Request, current_user: TokenData = require_admin()):
     """List all users (admin only)"""
     try:
@@ -572,7 +571,6 @@ async def list_users(request: Request, current_user: TokenData = require_admin()
 # ============= SECURITY MANAGEMENT ENDPOINTS =============
 
 @app.get("/api/security/stats")
-@rate_limit("10/minute")
 async def get_security_stats(current_user: TokenData = require_admin()):
     """Get security statistics and events (admin only)"""
     try:
@@ -603,7 +601,6 @@ async def get_security_stats(current_user: TokenData = require_admin()):
 
 
 @app.post("/api/security/unblock-ip")
-@rate_limit("5/minute")
 async def unblock_ip(
     ip_address: str,
     current_user: TokenData = require_admin()
@@ -630,7 +627,6 @@ async def unblock_ip(
 
 
 @app.post("/api/security/emergency-shutdown")
-@rate_limit("1/minute")
 async def emergency_shutdown(current_user: TokenData = require_admin()):
     """Emergency shutdown endpoint (admin only)"""
     try:
@@ -657,7 +653,6 @@ async def emergency_shutdown(current_user: TokenData = require_admin()):
 # ============= PUBLIC ENDPOINTS =============
 
 @app.get("/")
-@rate_limit("30/minute")
 async def root():
     """Root endpoint"""
     return {
@@ -670,7 +665,6 @@ async def root():
 
 
 @app.get("/health")
-@rate_limit("60/minute")
 async def health_check():
     """Health check endpoint"""
     try:
@@ -698,7 +692,6 @@ async def health_check():
         return {"status": "unhealthy", "error": str(e)}
 
 @app.get("/metrics")
-@rate_limit("30/minute")
 async def get_metrics(current_user: TokenData = require_viewer()):
     """Prometheus metrics endpoint - requires authentication"""
     # Update gauge metrics using component manager
@@ -718,7 +711,6 @@ async def get_metrics(current_user: TokenData = require_viewer()):
 # ============= PROTECTED ENDPOINTS =============
 
 @app.get("/api/debug/status")
-@rate_limit("10/minute")
 async def debug_status(current_user: TokenData = require_operator()):
     """Debug endpoint to check system status - requires operator role"""
     
@@ -755,7 +747,6 @@ async def debug_status(current_user: TokenData = require_operator()):
 
 
 @app.post("/api/debug/test-prediction")
-@rate_limit("5/minute")
 async def test_prediction(current_user: TokenData = require_operator()):
     """Debug endpoint to test ML predictions on sample malicious requests"""
     ml_engine = get_ml_engine()
@@ -827,7 +818,6 @@ async def test_prediction(current_user: TokenData = require_operator()):
 
 
 @app.get("/api/status")
-@rate_limit("10/minute")
 async def get_system_status(current_user: TokenData = require_viewer()):
     """Get system status - requires authentication"""
     # Get components safely
@@ -856,7 +846,6 @@ async def get_system_status(current_user: TokenData = require_viewer()):
 
 
 @app.get("/api/health")
-@rate_limit("20/minute")
 async def get_system_health(current_user: TokenData = require_viewer()):
     """Get comprehensive system health including error recovery status"""
     try:
@@ -909,7 +898,6 @@ async def get_system_health(current_user: TokenData = require_viewer()):
 
 
 @app.post("/api/nodes/add")
-@rate_limit("5/minute")
 async def add_nginx_node(
     node: SecureNginxNodeModel,
     current_user: TokenData = require_admin()
@@ -946,7 +934,6 @@ async def add_nginx_node(
 
 
 @app.get("/api/nodes")
-@rate_limit("20/minute")
 async def list_nginx_nodes(current_user: TokenData = require_viewer()):
     """List all nginx nodes - requires authentication"""
     nginx_manager = component_manager.get_component('nginx_manager')
@@ -960,7 +947,6 @@ async def list_nginx_nodes(current_user: TokenData = require_viewer()):
 
 
 @app.get("/api/nodes/status")
-@rate_limit("20/minute")
 async def get_cluster_status(current_user: TokenData = require_viewer()):
     """Get status of all nginx nodes - requires authentication"""
     nginx_manager = component_manager.get_component('nginx_manager')
@@ -976,7 +962,6 @@ async def get_cluster_status(current_user: TokenData = require_viewer()):
 
 
 @app.post("/api/training/start")
-@rate_limit("3/minute")
 async def start_training(
     request: SecureTrainingRequest,
     current_user: TokenData = require_operator()
@@ -1000,7 +985,6 @@ async def start_training(
 
 
 @app.post("/api/traffic/start-collection")
-@rate_limit("5/minute")
 async def start_traffic_collection(
     node_urls: List[str],
     current_user: TokenData = require_operator()
@@ -1035,7 +1019,6 @@ async def start_traffic_collection(
 
 
 @app.get("/api/traffic/stats")
-@rate_limit("30/minute")
 async def get_traffic_stats(current_user: TokenData = require_viewer()):
     """Get traffic collection statistics - requires authentication"""
     traffic_collector = component_manager.get_component('traffic_collector')
@@ -1058,7 +1041,6 @@ async def get_traffic_stats(current_user: TokenData = require_viewer()):
 
 
 @app.post("/api/processing/start")
-@rate_limit("3/minute")
 async def start_real_time_processing(current_user: TokenData = require_operator()):
     """Start real-time processing of traffic"""
     logger.info("API ENDPOINT: Starting real-time processing...")
@@ -1292,7 +1274,6 @@ async def process_threats_continuously():
 
 
 @app.get("/api/threats")
-@rate_limit("20/minute")
 async def get_recent_threats(current_user: TokenData = require_viewer()) -> ThreatResponse:
     """Get recent threat detections - requires authentication"""
     real_time_processor = component_manager.get_component('real_time_processor')
@@ -1310,7 +1291,6 @@ async def get_recent_threats(current_user: TokenData = require_viewer()) -> Thre
 
 
 @app.get("/api/rules")
-@rate_limit("20/minute")
 async def get_active_rules(current_user: TokenData = require_viewer()):
     """Get currently active WAF rules - requires authentication"""
     waf_rule_generator = component_manager.get_component('waf_rule_generator')
@@ -1327,7 +1307,6 @@ async def get_active_rules(current_user: TokenData = require_viewer()):
 
 
 @app.post("/api/rules/deploy")
-@rate_limit("3/minute")
 async def deploy_rules(
     request: SecureRuleDeploymentRequest,
     current_user: TokenData = require_admin()
@@ -1401,7 +1380,6 @@ async def deploy_rules(
 
 
 @app.get("/api/config/nginx")
-@rate_limit("10/minute")
 async def get_nginx_config(current_user: TokenData = require_operator()):
     """Generate and return nginx configuration - requires operator role"""
     waf_rule_generator = component_manager.get_component('waf_rule_generator')
@@ -1425,7 +1403,6 @@ async def get_nginx_config(current_user: TokenData = require_operator()):
 
 
 @app.post("/api/processing/stop")
-@rate_limit("5/minute")
 async def stop_processing(current_user: TokenData = require_operator()):
     """Stop real-time processing - requires operator role"""
     try:
@@ -1452,7 +1429,6 @@ async def stop_processing(current_user: TokenData = require_operator()):
 
 
 @app.get("/api/stats")
-@rate_limit("20/minute")
 async def get_system_stats(current_user: TokenData = require_viewer()):
     """Get overall system statistics - requires authentication"""
     try:
