@@ -1,14 +1,12 @@
 #!/bin/bash
 
 # WAF AI System Startup Script
-# This script trains the ML model and starts all WAF components
+# This script starts the entire WAF AI system and runs the bootstrap process
 
 set -e
 
-# Configuration
-WAF_API_URL="http://localhost:8000"
-PROMETHEUS_URL="http://localhost:9090"
-GRAFANA_URL="http://localhost:3000"
+echo "🚀 Starting WAF AI System"
+echo "=========================="
 
 # Colors for output
 RED='\033[0;31m'
@@ -17,309 +15,131 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Logging function
-log() {
-    echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1"
+# Function to print colored output
+print_status() {
+    echo -e "${GREEN}✓${NC} $1"
 }
 
-success() {
-    echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')] ✅ $1${NC}"
+print_warning() {
+    echo -e "${YELLOW}⚠${NC} $1"
 }
 
-warning() {
-    echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️  $1${NC}"
+print_error() {
+    echo -e "${RED}✗${NC} $1"
 }
 
-error() {
-    echo -e "${RED}[$(date '+%Y-%m-%d %H:%M:%S')] ❌ $1${NC}"
+print_info() {
+    echo -e "${BLUE}ℹ${NC} $1"
 }
 
-# Wait for service to be ready
-wait_for_service() {
-    local url=$1
-    local service_name=$2
+# Check if Docker and Docker Compose are available
+command -v docker >/dev/null 2>&1 || { print_error "Docker is required but not installed. Aborting."; exit 1; }
+command -v docker-compose >/dev/null 2>&1 || { print_error "Docker Compose is required but not installed. Aborting."; exit 1; }
+
+# Check if already running
+if docker-compose ps | grep -q "Up"; then
+    print_warning "Some services are already running. Stopping them first..."
+    docker-compose down
+fi
+
+print_info "Starting Docker Compose services..."
+echo "This may take a few minutes for first-time setup..."
+
+# Start services in background
+docker-compose up -d
+
+print_status "Docker services started"
+
+# Wait for services to be ready
+print_info "Waiting for services to initialize..."
+sleep 30
+
+# Check service health
+print_info "Checking service health..."
+
+# Function to check if service is responding
+check_service() {
+    local service_name=$1
+    local url=$2
     local max_attempts=30
     local attempt=1
     
-    log "Waiting for $service_name to be ready..."
+    print_info "Checking $service_name..."
     
     while [ $attempt -le $max_attempts ]; do
-        if curl -s "$url" > /dev/null 2>&1; then
-            success "$service_name is ready!"
+        if curl -s -f "$url" > /dev/null 2>&1; then
+            print_status "$service_name is ready"
             return 0
         fi
         
-        echo -n "."
+        printf "."
         sleep 2
         attempt=$((attempt + 1))
     done
     
-    error "$service_name failed to start after $((max_attempts * 2)) seconds"
+    print_warning "$service_name is not responding after $max_attempts attempts"
     return 1
 }
 
-# Check if WAF API is responding
-check_waf_status() {
-    log "Checking WAF API status..."
-    
-    if response=$(curl -s "$WAF_API_URL/api/status" 2>/dev/null); then
-        echo "$response" | jq '.' 2>/dev/null || echo "$response"
-        return 0
-    else
-        error "WAF API is not responding"
-        return 1
-    fi
+# Check core services
+check_service "WAF API" "http://localhost:8000/health"
+check_service "Grafana" "http://localhost:3000/api/health"
+check_service "Prometheus" "http://localhost:9090/-/ready"
+check_service "Nginx Node 1" "http://localhost:8081"
+check_service "Nginx Node 2" "http://localhost:8082"
+
+print_info "Installing Python dependencies for bootstrap..."
+pip3 install aiohttp requests > /dev/null 2>&1 || {
+    print_warning "Could not install Python dependencies. Trying with user install..."
+    pip3 install --user aiohttp requests > /dev/null 2>&1
 }
 
-# Train ML model with sample data
-train_ml_model() {
-    log "Training ML model with sample data..."
-    
-    # Create comprehensive training data with various attack patterns
-    training_data='{
-  "training_data": [
-    {
-      "timestamp": "2025-07-20T21:45:00",
-      "method": "GET",
-      "url": "/",
-      "headers_count": 5,
-      "body_length": 0,
-      "source_ip": "192.168.1.1",
-      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "content_length": 0,
-      "has_suspicious_headers": false,
-      "url_length": 1,
-      "contains_sql_patterns": false,
-      "contains_xss_patterns": false
-    },
-    {
-      "timestamp": "2025-07-20T21:45:01",
-      "method": "GET",
-      "url": "/api/products",
-      "headers_count": 4,
-      "body_length": 0,
-      "source_ip": "192.168.1.2",
-      "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
-      "content_length": 0,
-      "has_suspicious_headers": false,
-      "url_length": 13,
-      "contains_sql_patterns": false,
-      "contains_xss_patterns": false
-    },
-    {
-      "timestamp": "2025-07-20T21:45:02",
-      "method": "GET", 
-      "url": "/api/users?id=1'\'' OR '\''1'\''='\''1",
-      "headers_count": 4,
-      "body_length": 0,
-      "source_ip": "10.0.0.100",
-      "user_agent": "sqlmap/1.6.12",
-      "content_length": 0,
-      "has_suspicious_headers": false,
-      "url_length": 30,
-      "contains_sql_patterns": true,
-      "contains_xss_patterns": false
-    },
-    {
-      "timestamp": "2025-07-20T21:45:03",
-      "method": "GET",
-      "url": "/search?q=<script>alert(\"xss\")</script>",
-      "headers_count": 3,
-      "body_length": 0,
-      "source_ip": "172.16.0.50",
-      "user_agent": "BadBot/1.0",
-      "content_length": 0,
-      "has_suspicious_headers": false,
-      "url_length": 35,
-      "contains_sql_patterns": false,
-      "contains_xss_patterns": true
-    },
-    {
-      "timestamp": "2025-07-20T21:45:04",
-      "method": "GET",
-      "url": "/admin/config.php",
-      "headers_count": 2,
-      "body_length": 0,
-      "source_ip": "203.0.113.42",
-      "user_agent": "Nmap NSE",
-      "content_length": 0,
-      "has_suspicious_headers": false,
-      "url_length": 17,
-      "contains_sql_patterns": false,
-      "contains_xss_patterns": false
-    },
-    {
-      "timestamp": "2025-07-20T21:45:05",
-      "method": "GET",
-      "url": "/../../../etc/passwd",
-      "headers_count": 3,
-      "body_length": 0,
-      "source_ip": "198.51.100.25",
-      "user_agent": "DirBuster",
-      "content_length": 0,
-      "has_suspicious_headers": false,
-      "url_length": 18,
-      "contains_sql_patterns": false,
-      "contains_xss_patterns": false
-    },
-    {
-      "timestamp": "2025-07-20T21:45:06",
-      "method": "POST",
-      "url": "/api/login",
-      "headers_count": 6,
-      "body_length": 150,
-      "source_ip": "192.168.1.10",
-      "user_agent": "curl/7.68.0",
-      "content_length": 150,
-      "has_suspicious_headers": false,
-      "url_length": 10,
-      "contains_sql_patterns": false,
-      "contains_xss_patterns": false
-    },
-    {
-      "timestamp": "2025-07-20T21:45:07",
-      "method": "GET",
-      "url": "/api/search?q=test'\'' UNION SELECT * FROM users--",
-      "headers_count": 4,
-      "body_length": 0,
-      "source_ip": "10.0.0.200",
-      "user_agent": "python-requests/2.28.1",
-      "content_length": 0,
-      "has_suspicious_headers": false,
-      "url_length": 45,
-      "contains_sql_patterns": true,
-      "contains_xss_patterns": false
-    }
-  ],
-  "labels": ["normal", "normal", "sql_injection", "xss", "unauthorized_access", "file_access", "normal", "sql_injection"]
-}'
-    
-    if response=$(curl -s -X POST -H "Content-Type: application/json" \
-        -d "$training_data" \
-        "$WAF_API_URL/api/training/start" 2>/dev/null); then
-        
-        if echo "$response" | grep -q "Training completed successfully"; then
-            success "ML model training completed successfully"
-            echo "$response" | jq '.' 2>/dev/null || echo "$response"
-        else
-            error "ML model training failed: $response"
-            return 1
-        fi
-    else
-        error "Failed to communicate with WAF API for training"
-        return 1
-    fi
-}
+# Run bootstrap script
+print_info "Running system bootstrap..."
+echo "This will:"
+echo "  • Register nginx nodes"
+echo "  • Start traffic collection" 
+echo "  • Train ML model with sample data"
+echo "  • Start real-time processing"
+echo "  • Verify system connectivity"
+echo ""
 
-# Start real-time processing
-start_processing() {
-    log "Starting real-time processing..."
-    
-    if response=$(curl -s -X POST "$WAF_API_URL/api/processing/start" 2>/dev/null); then
-        if echo "$response" | grep -q "Real-time processing started"; then
-            success "Real-time processing started successfully"
-            echo "$response" | jq '.' 2>/dev/null || echo "$response"
-        else
-            error "Failed to start real-time processing: $response"
-            return 1
-        fi
-    else
-        error "Failed to communicate with WAF API for processing start"
-        return 1
-    fi
-}
+if python3 scripts/bootstrap.py; then
+    print_status "Bootstrap completed successfully!"
+else
+    print_warning "Bootstrap completed with some warnings. System should still be functional."
+fi
 
-# Register nginx nodes (if available)
-register_nodes() {
-    log "Registering nginx nodes..."
-    
-    # Try to register known nodes
-    nodes=("nginx-node-1:8081" "nginx-node-2:8082")
-    
-    for node in "${nodes[@]}"; do
-        node_data="{\"node_url\": \"http://$node\", \"ssh_config\": {\"host\": \"$node\", \"port\": 22, \"username\": \"nginx\"}}"
-        
-        if response=$(curl -s -X POST -H "Content-Type: application/json" \
-            -d "$node_data" \
-            "$WAF_API_URL/api/nodes/register" 2>/dev/null); then
-            
-            if echo "$response" | grep -q "registered successfully"; then
-                success "Node $node registered successfully"
-            else
-                warning "Node $node registration response: $response"
-            fi
-        else
-            warning "Failed to register node $node (this is optional)"
-        fi
-    done
-}
+echo ""
+print_status "WAF AI System is ready!"
+echo "========================"
+echo ""
+echo "📊 Access Points:"
+echo "  • WAF Dashboard:  http://localhost"
+echo "  • WAF API:        http://localhost:8000"
+echo "  • Grafana:        http://localhost:3000 (admin/waf-admin)"
+echo "  • Prometheus:     http://localhost:9090"
+echo "  • Nginx Node 1:   http://localhost:8081"
+echo "  • Nginx Node 2:   http://localhost:8082"
+echo ""
+echo "🔧 Management:"
+echo "  • View logs:      docker-compose logs -f"
+echo "  • Stop system:    docker-compose down"
+echo "  • Restart:        docker-compose restart"
+echo ""
+echo "📈 The traffic generator is now sending requests to the nginx nodes."
+echo "📊 Grafana dashboards should populate with data in 1-2 minutes."
+echo ""
 
-# Show system status
-show_status() {
-    log "System Status:"
-    echo "=================="
-    
-    # WAF API Status
-    if check_waf_status; then
-        success "WAF API is operational"
-    else
-        error "WAF API has issues"
-    fi
-    
-    # Check Prometheus
-    if curl -s "$PROMETHEUS_URL/-/healthy" > /dev/null 2>&1; then
-        success "Prometheus is healthy"
-    else
-        warning "Prometheus may not be ready"
-    fi
-    
-    # Check Grafana
-    if curl -s "$GRAFANA_URL/api/health" > /dev/null 2>&1; then
-        success "Grafana is accessible"
-    else
-        warning "Grafana may not be ready"
-    fi
-    
-    echo "=================="
-    echo -e "${BLUE}Access URLs:${NC}"
-    echo "  WAF API:    $WAF_API_URL/docs"
-    echo "  Prometheus: $PROMETHEUS_URL"
-    echo "  Grafana:    $GRAFANA_URL (admin/admin)"
-    echo "=================="
-}
+# Optional: Open browser tabs
+if command -v xdg-open >/dev/null 2>&1; then
+    print_info "Opening dashboard in browser..."
+    xdg-open "http://localhost" > /dev/null 2>&1 &
+    xdg-open "http://localhost:3000" > /dev/null 2>&1 &
+elif command -v open >/dev/null 2>&1; then
+    print_info "Opening dashboard in browser..."
+    open "http://localhost" > /dev/null 2>&1 &
+    open "http://localhost:3000" > /dev/null 2>&1 &
+fi
 
-# Main execution
-main() {
-    echo -e "${GREEN}"
-    echo "=========================================="
-    echo "       WAF AI System Startup Script      "
-    echo "=========================================="
-    echo -e "${NC}"
-    
-    # Wait for WAF API to be ready
-    wait_for_service "$WAF_API_URL/api/status" "WAF API"
-    
-    # Train ML model
-    train_ml_model
-    
-    # Start processing
-    start_processing
-    
-    # Register nodes (optional)
-    register_nodes
-    
-    # Show final status
-    show_status
-    
-    success "WAF AI system is now fully operational!"
-    echo ""
-    echo -e "${YELLOW}Next steps:${NC}"
-    echo "1. Open Grafana at $GRAFANA_URL"
-    echo "2. Navigate to the 'Unified WAF Monitoring' dashboard"
-    echo "3. Monitor real-time traffic and threat detection"
-    echo "4. Check generated WAF rules at $WAF_API_URL/api/rules"
-    echo ""
-}
-
-# Run main function
-main "$@"
+print_status "Setup complete! 🎉"

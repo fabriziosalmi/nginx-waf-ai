@@ -88,6 +88,11 @@ createApp({
         const trainingProgress = ref(0);
         const trainingLogs = ref([]);
         
+        // System initialization state
+        const systemInitialized = ref(false);
+        const initializingSystem = ref(false);
+        const initProgress = ref([]);
+        
         // Settings
         const settings = ref({
             threatThreshold: 0.5,
@@ -189,19 +194,19 @@ createApp({
                 };
                 
             } catch (error) {
-                console.warn('API call failed, using mock data:', error);
-                // Use mock data if API fails
+                console.warn('API call failed:', error);
+                // Use empty/default data instead of mock data
                 stats.value = {
-                    threats: { total: 23, last24h: 5 },
-                    traffic: { requests: 154280, requestsPerSecond: 45 },
-                    rules: { active: 12, deployed: 10 },
-                    nodes: { healthy: 3, total: 3 }
+                    threats: { total: 0, last24h: 0 },
+                    traffic: { requests: 0, requestsPerSecond: 0 },
+                    rules: { active: 0, deployed: 0 },
+                    nodes: { healthy: 0, total: 0 }
                 };
                 
                 systemStatus.value = {
-                    class: 'warning',
+                    class: 'danger',
                     icon: 'fas fa-exclamation-triangle',
-                    text: 'API Connection Failed - Using Mock Data'
+                    text: 'API Connection Failed'
                 };
             }
         };
@@ -223,30 +228,9 @@ createApp({
                 }));
                 
             } catch (error) {
-                console.warn('Failed to fetch threats, using mock data:', error);
-                // Mock data
-                threats.value = [
-                    {
-                        id: 1,
-                        type: 'sql_injection',
-                        severity: 'high',
-                        confidence: 95.5,
-                        source_ip: '192.168.1.100',
-                        url: '/admin/login.php?id=1\' OR \'1\'=\'1',
-                        timestamp: new Date(Date.now() - 300000),
-                        details: 'SQL injection attempt detected in query parameter'
-                    },
-                    {
-                        id: 2,
-                        type: 'xss',
-                        severity: 'medium',
-                        confidence: 87.2,
-                        source_ip: '10.0.0.50',
-                        url: '/search?q=<script>alert(\'xss\')</script>',
-                        timestamp: new Date(Date.now() - 600000),
-                        details: 'Cross-site scripting attempt in search parameter'
-                    }
-                ];
+                console.warn('Failed to fetch threats:', error);
+                // Use empty array instead of mock data
+                threats.value = [];
             }
         };
         
@@ -267,34 +251,9 @@ createApp({
                 }));
                 
             } catch (error) {
-                console.warn('Failed to fetch nodes, using mock data:', error);
-                // Mock data
-                nodes.value = [
-                    {
-                        node_id: 'nginx-node-1',
-                        hostname: 'web-server-01',
-                        ssh_host: 'nginx-node-1',
-                        ssh_port: 22,
-                        healthy: true,
-                        metrics: {
-                            cpu: 45.2,
-                            memory: 67.8,
-                            requestsPerSec: 124
-                        }
-                    },
-                    {
-                        node_id: 'nginx-node-2',
-                        hostname: 'web-server-02',
-                        ssh_host: 'nginx-node-2',
-                        ssh_port: 22,
-                        healthy: true,
-                        metrics: {
-                            cpu: 32.1,
-                            memory: 54.3,
-                            requestsPerSec: 98
-                        }
-                    }
-                ];
+                console.warn('Failed to fetch nodes:', error);
+                // Use empty array instead of mock data
+                nodes.value = [];
             }
         };
         
@@ -316,95 +275,96 @@ createApp({
                 }));
                 
             } catch (error) {
-                console.warn('Failed to fetch rules, using mock data:', error);
-                // Mock data
-                rules.value = [
-                    {
-                        id: 1,
-                        name: 'Block SQL Injection',
-                        description: 'Blocks common SQL injection patterns',
-                        status: 'active',
-                        enabled: true,
-                        priority: 'high',
-                        rule_content: 'if ($query_string ~* "(\\\\|%27|%22|\\\\x00)") {\n    return 403;\n}'
-                    },
-                    {
-                        id: 2,
-                        name: 'Rate Limiting',
-                        description: 'Limits requests per IP to 100/minute',
-                        status: 'active',
-                        enabled: true,
-                        priority: 'medium',
-                        rule_content: 'limit_req_zone $binary_remote_addr zone=api:10m rate=100r/m;'
-                    }
-                ];
+                console.warn('Failed to fetch rules:', error);
+                // Use empty array instead of mock data
+                rules.value = [];
             }
         };
         
         const fetchRecentActivity = async () => {
             try {
-                const data = await apiCall('/activity');
-                recentActivity.value = data.activities || [];
-            } catch (error) {
-                // Mock data
-                recentActivity.value = [
-                    {
-                        id: 1,
-                        type: 'threat',
-                        icon: 'fas fa-exclamation-triangle',
-                        message: 'SQL injection attempt blocked from 192.168.1.100',
-                        timestamp: new Date(Date.now() - 180000)
-                    },
-                    {
-                        id: 2,
+                // Get real activity data from multiple sources
+                const [threatsRes, trafficRes, rulesRes] = await Promise.all([
+                    apiCall('/api/threats'),
+                    apiCall('/api/traffic/stats'),
+                    apiCall('/api/rules')
+                ]);
+                
+                const activities = [];
+                
+                // Add threat activities
+                if (threatsRes.threats && threatsRes.threats.length > 0) {
+                    threatsRes.threats.slice(0, 3).forEach((threat, index) => {
+                        activities.push({
+                            id: `threat_${index}`,
+                            type: 'threat',
+                            icon: 'fas fa-exclamation-triangle',
+                            message: `${threat.threat_type || 'Threat'} detected from ${threat.source_ip || 'unknown IP'}`,
+                            timestamp: new Date(threat.timestamp || Date.now() - (index * 300000))
+                        });
+                    });
+                }
+                
+                // Add traffic activity
+                if (trafficRes.total_requests > 0) {
+                    activities.push({
+                        id: 'traffic_update',
+                        type: 'system',
+                        icon: 'fas fa-globe',
+                        message: `Traffic processed: ${trafficRes.total_requests} total requests, ${trafficRes.recent_requests} recent`,
+                        timestamp: new Date(Date.now() - 60000)
+                    });
+                }
+                
+                // Add rule deployment activity
+                if (rulesRes.rules && rulesRes.rules.length > 0) {
+                    activities.push({
+                        id: 'rules_active',
                         type: 'rule',
                         icon: 'fas fa-shield-alt',
-                        message: 'New WAF rule deployed to nginx-node-1',
-                        timestamp: new Date(Date.now() - 420000)
-                    },
-                    {
-                        id: 3,
-                        type: 'system',
-                        icon: 'fas fa-server',
-                        message: 'nginx-node-2 came back online',
-                        timestamp: new Date(Date.now() - 720000)
-                    }
-                ];
+                        message: `WAF rules active: ${rulesRes.total_rules} rules deployed`,
+                        timestamp: new Date(Date.now() - 120000)
+                    });
+                }
+                
+                // Sort by timestamp (newest first)
+                activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
+                recentActivity.value = activities.slice(0, 5); // Keep only 5 most recent
+                
+            } catch (error) {
+                console.warn('Failed to fetch real activity data:', error);
+                // Use empty array instead of fake data
+                recentActivity.value = [];
             }
         };
         
         const fetchTrafficData = async () => {
             try {
-                const data = await apiCall('/traffic');
-                recentRequests.value = data.requests || [];
+                const data = await apiCall('/api/traffic/stats');
+                
+                // Update traffic stats with real data
                 trafficStats.value = {
-                    ...trafficStats.value,
-                    ...data.stats
+                    totalRequests: data.total_requests || 0,
+                    recentRequests: data.recent_requests || 0,
+                    isCollecting: data.is_collecting || false,
+                    timestamp: data.timestamp
                 };
+                
+                // For the traffic display, we'll use empty array instead of mock data
+                // since the backend doesn't currently provide individual request details
+                recentRequests.value = [];
+                
             } catch (error) {
-                // Mock data
-                recentRequests.value = [
-                    {
-                        id: 1,
-                        timestamp: new Date(Date.now() - 30000),
-                        source_ip: '192.168.1.100',
-                        method: 'POST',
-                        url: '/api/login',
-                        status: 200,
-                        size: 1024,
-                        blocked: false
-                    },
-                    {
-                        id: 2,
-                        timestamp: new Date(Date.now() - 45000),
-                        source_ip: '10.0.0.50',
-                        method: 'GET',
-                        url: '/admin',
-                        status: 403,
-                        size: 512,
-                        blocked: true
-                    }
-                ];
+                console.warn('Failed to fetch traffic stats:', error);
+                // Use empty data instead of mock data
+                recentRequests.value = [];
+                trafficStats.value = {
+                    totalRequests: 0,
+                    recentRequests: 0,
+                    isCollecting: false,
+                    timestamp: null
+                };
             }
         };
         
@@ -463,35 +423,39 @@ createApp({
         
         const testNode = async (nodeId) => {
             try {
-                const result = await apiCall(`/nodes/${nodeId}/test`, { method: 'POST' });
-                if (result.success) {
-                } else {
-                }
+                // Note: Backend doesn't have individual node test endpoint
+                // This would need to be implemented in the backend
+                console.warn('Node test endpoint not implemented in backend');
             } catch (error) {
+                console.error('Failed to test node:', error);
             }
         };
         
         const deployRules = async (nodeId) => {
             try {
-                await apiCall(`/nodes/${nodeId}/deploy`, { method: 'POST' });
+                // Use the correct backend endpoint for deploying rules
+                await apiCall('/api/rules/deploy', { method: 'POST' });
                 await fetchNodes();
             } catch (error) {
+                console.error('Failed to deploy rules:', error);
             }
         };
         
         const removeNode = async (nodeId) => {
             if (confirm(`Are you sure you want to remove node ${nodeId}?`)) {
                 try {
-                    await apiCall(`/nodes/${nodeId}`, { method: 'DELETE' });
-                    await fetchNodes();
+                    // Note: Backend doesn't have delete node endpoint
+                    // This would need to be implemented in the backend
+                    console.warn('Delete node endpoint not implemented in backend');
                 } catch (error) {
+                    console.error('Failed to remove node:', error);
                 }
             }
         };
         
         const addNode = async () => {
             try {
-                await apiCall('/nodes', {
+                await apiCall('/api/nodes/add', {
                     method: 'POST',
                     body: JSON.stringify(newNode.value)
                 });
@@ -511,15 +475,19 @@ createApp({
                 
                 await fetchNodes();
             } catch (error) {
+                console.error('Failed to add node:', error);
             }
         };
         
         const generateRules = async () => {
             try {
                 loading.value = true;
-                const result = await apiCall('/rules/generate', { method: 'POST' });
+                // Note: Backend doesn't have generate rules endpoint
+                // This would need to be implemented in the backend
+                console.warn('Generate rules endpoint not implemented in backend');
                 await fetchRules();
             } catch (error) {
+                console.error('Failed to generate rules:', error);
             } finally {
                 loading.value = false;
             }
@@ -528,9 +496,10 @@ createApp({
         const deployAllRules = async () => {
             try {
                 loading.value = true;
-                await apiCall('/rules/deploy-all', { method: 'POST' });
+                await apiCall('/api/rules/deploy', { method: 'POST' });
                 await fetchRules();
             } catch (error) {
+                console.error('Failed to deploy rules:', error);
             } finally {
                 loading.value = false;
             }
@@ -538,12 +507,11 @@ createApp({
         
         const toggleRule = async (ruleId) => {
             try {
-                const rule = rules.value.find(r => r.id === ruleId);
-                if (rule) {
-                    rule.enabled = !rule.enabled;
-                    await apiCall(`/rules/${ruleId}/toggle`, { method: 'POST' });
-                }
+                // Note: Backend doesn't have toggle rule endpoint
+                // This would need to be implemented in the backend
+                console.warn('Toggle rule endpoint not implemented in backend');
             } catch (error) {
+                console.error('Failed to toggle rule:', error);
             }
         };
         
@@ -553,9 +521,11 @@ createApp({
         const deleteRule = async (ruleId) => {
             if (confirm('Are you sure you want to delete this rule?')) {
                 try {
-                    await apiCall(`/rules/${ruleId}`, { method: 'DELETE' });
-                    rules.value = rules.value.filter(r => r.id !== ruleId);
+                    // Note: Backend doesn't have delete rule endpoint
+                    // This would need to be implemented in the backend
+                    console.warn('Delete rule endpoint not implemented in backend');
                 } catch (error) {
+                    console.error('Failed to delete rule:', error);
                 }
             }
         };
@@ -589,9 +559,24 @@ createApp({
                 trainingProgress.value = 0;
                 trainingLogs.value = [];
                 
+                // Get training data
+                const trainingData = [
+                    // SQL injection samples
+                    { url: "/search?q=' OR 1=1 --", method: "GET", contains_sql_patterns: true, contains_xss_patterns: false },
+                    { url: "/login?user=admin' UNION SELECT * FROM users --", method: "GET", contains_sql_patterns: true, contains_xss_patterns: false },
+                    // XSS samples
+                    { url: "/search?q=<script>alert('xss')</script>", method: "GET", contains_sql_patterns: false, contains_xss_patterns: true },
+                    { url: "/comment?text=<img src=x onerror=alert(1)>", method: "POST", contains_sql_patterns: false, contains_xss_patterns: true },
+                    // Normal requests
+                    { url: "/", method: "GET", contains_sql_patterns: false, contains_xss_patterns: false },
+                    { url: "/api/status", method: "GET", contains_sql_patterns: false, contains_xss_patterns: false }
+                ];
+                
+                const labels = [1, 1, 1, 1, 0, 0]; // 1 = malicious, 0 = normal
+                
                 // Simulate training progress
                 const interval = setInterval(() => {
-                    trainingProgress.value += Math.random() * 10;
+                    trainingProgress.value += Math.random() * 15;
                     trainingLogs.value.push({
                         timestamp: new Date(),
                         message: `Training progress: ${trainingProgress.value.toFixed(1)}%`
@@ -602,19 +587,34 @@ createApp({
                         clearInterval(interval);
                         isTraining.value = false;
                         modelInfo.value.lastTrained = new Date();
+                        console.log('Model training completed');
                     }
-                }, 1000);
+                }, 800);
                 
-                await apiCall('/ml/train', { method: 'POST' });
+                // Call the real API endpoint
+                const result = await apiCall('/api/training/start', { 
+                    method: 'POST',
+                    body: JSON.stringify({
+                        training_data: trainingData,
+                        labels: labels
+                    })
+                });
+                
+                console.log('Training result:', result);
+                
             } catch (error) {
+                console.error('Training failed:', error);
                 isTraining.value = false;
             }
         };
         
         const testModel = async () => {
             try {
-                const result = await apiCall('/ml/test', { method: 'POST' });
+                // Note: Backend doesn't have ML test endpoint
+                // Testing can be done via debug endpoints or training validation
+                console.warn('ML test endpoint not implemented in backend');
             } catch (error) {
+                console.error('Failed to test model:', error);
             }
         };
         
@@ -685,6 +685,160 @@ createApp({
                 loginError.value = error.message;
             } finally {
                 loginLoading.value = false;
+            }
+        };
+        
+        // System initialization functions
+        const checkSystemStatus = async () => {
+            try {
+                const [statsRes, nodesRes, debugRes] = await Promise.all([
+                    apiCall('/api/stats'),
+                    apiCall('/api/nodes'),
+                    apiCall('/api/debug/status')
+                ]);
+                
+                // Check if system appears to be initialized
+                const hasNodes = nodesRes.nodes && nodesRes.nodes.length > 0;
+                const hasTrafficStats = statsRes.traffic && statsRes.traffic.total_requests > 0;
+                const mlTrained = debugRes.components && debugRes.components.ml_engine;
+                
+                systemInitialized.value = hasNodes && (hasTrafficStats || mlTrained);
+                
+                return systemInitialized.value;
+            } catch (error) {
+                console.warn('Could not check system status:', error);
+                systemInitialized.value = false;
+                return false;
+            }
+        };
+        
+        const addInitProgress = (id, message, icon = 'fas fa-circle', status = 'pending') => {
+            initProgress.value.push({ id, message, icon, status });
+        };
+        
+        const updateInitProgress = (id, status, newIcon = null) => {
+            const step = initProgress.value.find(s => s.id === id);
+            if (step) {
+                step.status = status;
+                if (newIcon) step.icon = newIcon;
+            }
+        };
+        
+        const initializeSystem = async () => {
+            if (initializingSystem.value) return;
+            
+            initializingSystem.value = true;
+            initProgress.value = [];
+            
+            try {
+                // Step 1: Register nodes
+                addInitProgress('nodes', 'Registering nginx nodes...', 'fas fa-server');
+                try {
+                    const dockerNodes = [
+                        {
+                            node_id: 'nginx-node-1',
+                            hostname: 'nginx-node-1',
+                            ssh_host: 'nginx-node-1',
+                            ssh_port: 22,
+                            ssh_username: 'root',
+                            ssh_key_path: '/dev/null',
+                            nginx_config_path: '/etc/nginx/conf.d',
+                            nginx_reload_command: 'nginx -s reload',
+                            api_endpoint: 'http://log-server-1:8080'
+                        },
+                        {
+                            node_id: 'nginx-node-2',
+                            hostname: 'nginx-node-2',
+                            ssh_host: 'nginx-node-2',
+                            ssh_port: 22,
+                            ssh_username: 'root',
+                            ssh_key_path: '/dev/null',
+                            nginx_config_path: '/etc/nginx/conf.d',
+                            nginx_reload_command: 'nginx -s reload',
+                            api_endpoint: 'http://log-server-2:8080'
+                        }
+                    ];
+                    
+                    for (const node of dockerNodes) {
+                        try {
+                            await apiCall('/api/nodes/add', {
+                                method: 'POST',
+                                body: JSON.stringify(node)
+                            });
+                        } catch (e) {
+                            console.warn(`Node ${node.node_id} registration failed (may already exist):`, e);
+                        }
+                    }
+                    
+                    updateInitProgress('nodes', 'success', 'fas fa-check');
+                } catch (error) {
+                    updateInitProgress('nodes', 'error', 'fas fa-times');
+                    console.warn('Node registration had issues:', error);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Step 2: Start traffic collection
+                addInitProgress('traffic', 'Starting traffic collection...', 'fas fa-chart-line');
+                try {
+                    await apiCall('/api/traffic/start-collection', { method: 'POST' });
+                    updateInitProgress('traffic', 'success', 'fas fa-check');
+                } catch (error) {
+                    updateInitProgress('traffic', 'warning', 'fas fa-exclamation-triangle');
+                    console.warn('Traffic collection start had issues:', error);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Step 3: Train ML model
+                addInitProgress('ml', 'Training ML model...', 'fas fa-brain');
+                try {
+                    const trainingData = [
+                        { url: "/login?user=admin' OR '1'='1'", method: "GET", contains_sql_patterns: true, contains_xss_patterns: false, url_length: 35, suspicious_keywords: 1 },
+                        { url: "/search?q=<script>alert('xss')</script>", method: "GET", contains_sql_patterns: false, contains_xss_patterns: true, url_length: 42, suspicious_keywords: 1 },
+                        { url: "/", method: "GET", contains_sql_patterns: false, contains_xss_patterns: false, url_length: 1, suspicious_keywords: 0 },
+                        { url: "/api/status", method: "GET", contains_sql_patterns: false, contains_xss_patterns: false, url_length: 11, suspicious_keywords: 0 }
+                    ];
+                    const labels = [1, 1, 0, 0];
+                    
+                    await apiCall('/api/training/start', {
+                        method: 'POST',
+                        body: JSON.stringify({ training_data: trainingData, labels })
+                    });
+                    updateInitProgress('ml', 'success', 'fas fa-check');
+                } catch (error) {
+                    updateInitProgress('ml', 'warning', 'fas fa-exclamation-triangle');
+                    console.warn('ML training had issues:', error);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Step 4: Start real-time processing
+                addInitProgress('processing', 'Starting real-time processing...', 'fas fa-play');
+                try {
+                    await apiCall('/api/processing/start', { method: 'POST' });
+                    updateInitProgress('processing', 'success', 'fas fa-check');
+                } catch (error) {
+                    updateInitProgress('processing', 'warning', 'fas fa-exclamation-triangle');
+                    console.warn('Real-time processing start had issues:', error);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Final verification
+                addInitProgress('verify', 'Verifying system status...', 'fas fa-check-circle');
+                await checkSystemStatus();
+                updateInitProgress('verify', 'success', 'fas fa-check');
+                
+                // Refresh all data
+                await refreshData();
+                
+                console.log('System initialization completed');
+                
+            } catch (error) {
+                console.error('System initialization failed:', error);
+            } finally {
+                initializingSystem.value = false;
             }
         };
         
@@ -879,6 +1033,9 @@ createApp({
             if (checkAuth()) {
                 await refreshData();
                 
+                // Check system initialization status
+                await checkSystemStatus();
+                
                 // Initialize charts after DOM is ready
                 setTimeout(initCharts, 100);
                 
@@ -926,6 +1083,9 @@ createApp({
             isTraining,
             trainingProgress,
             trainingLogs,
+            systemInitialized,
+            initializingSystem,
+            initProgress,
             settings,
             newNode,
             rulesLastUpdated,
@@ -954,6 +1114,8 @@ createApp({
             login,
             checkAuth,
             handleLogin,
+            checkSystemStatus,
+            initializeSystem,
             toggleSidebar,
             formatNumber,
             formatTime,

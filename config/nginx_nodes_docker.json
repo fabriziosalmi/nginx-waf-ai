@@ -1,0 +1,24 @@
+[
+  {
+    "node_id": "nginx-node-1",
+    "hostname": "nginx-node-1",
+    "ssh_host": "nginx-node-1",
+    "ssh_port": 22,
+    "ssh_username": "root",
+    "ssh_key_path": "/dev/null",
+    "nginx_config_path": "/etc/nginx/conf.d",
+    "nginx_reload_command": "nginx -s reload",
+    "api_endpoint": "http://log-server-1:8080"
+  },
+  {
+    "node_id": "nginx-node-2",
+    "hostname": "nginx-node-2",
+    "ssh_host": "nginx-node-2", 
+    "ssh_port": 22,
+    "ssh_username": "root",
+    "ssh_key_path": "/dev/null",
+    "nginx_config_path": "/etc/nginx/conf.d",
+    "nginx_reload_command": "nginx -s reload",
+    "api_endpoint": "http://log-server-2:8080"
+  }
+]
