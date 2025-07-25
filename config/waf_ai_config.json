@@ -16,5 +16,21 @@
   "default_nginx_reload_command": "sudo systemctl reload nginx",
   "deployment_timeout_seconds": 30,
   "log_level": "INFO",
-  "log_file": "logs/waf_ai.log"
+  "log_file": "logs/waf_ai.log",
+  "security": {
+    "cors_origins": [
+      "http://localhost",
+      "http://localhost:80",
+      "http://127.0.0.1",
+      "http://127.0.0.1:80",
+      "http://localhost:3000",
+      "http://localhost:8080",
+      "http://localhost:5173",
+      "http://localhost:4200",
+      "http://127.0.0.1:3000",
+      "http://127.0.0.1:8080",
+      "http://127.0.0.1:5173",
+      "http://127.0.0.1:4200"
+    ]
+  }
 }

@@ -103,11 +103,15 @@ class SystemConfig:
         return secret
     
     def _parse_cors_origins(self) -> List[str]:
-        """Parse CORS origins from environment"""
+        """Parse CORS origins from environment variable"""
         origins_env = os.getenv('WAF_CORS_ORIGINS', '')
         if origins_env:
             return [origin.strip() for origin in origins_env.split(',')]
-        return ['http://localhost:3000', 'http://localhost:8080']  # Development defaults
+        return [
+            'http://localhost', 'http://127.0.0.1',
+            'http://localhost:80', 'http://127.0.0.1:80',
+            'http://localhost:3000', 'http://localhost:8080'
+        ]  # Development defaults
     
     def _validate_security_config(self):
         """Validate security configuration"""

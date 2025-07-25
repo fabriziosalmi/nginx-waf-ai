@@ -27,6 +27,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - LOG_LEVEL=INFO
       - NGINX_NODES=http://log-server-1:8080,http://log-server-2:8080
+      - WAF_CORS_ORIGINS=http://localhost,http://127.0.0.1,http://localhost:80,http://127.0.0.1:80,http://localhost:3000,http://localhost:8080,http://localhost:8000
     volumes:
       - ./data:/app/data
       - ./models:/app/models
@@ -117,6 +118,18 @@ services:
     depends_on:
       - nginx-node-1
       - nginx-node-2
+    restart: unless-stopped
+
+  # WAF AI Dashboard UI
+  waf-ui:
+    image: nginx:alpine
+    container_name: waf-ui
+    ports:
+      - "80:80"
+    volumes:
+      - ./ui:/usr/share/nginx/html:ro
+    depends_on:
+      - waf-api
     restart: unless-stopped
 
   # Monitoring with Prometheus

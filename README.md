@@ -433,10 +433,11 @@ curl -X POST "http://localhost:8000/api/rules/deploy" \
 
 ### 📊 Step 6: Access Monitoring Dashboards
 
-- **API Documentation**: http://localhost:8000/docs
-- **Grafana Dashboard**: http://localhost:3000 (admin/admin)
-- **Prometheus Metrics**: http://localhost:9090
-- **System Health**: http://localhost:8000/health
+- **🎛️ WAF AI Web Dashboard**: http://localhost:8000/dashboard (centralized management)
+- **📖 API Documentation**: http://localhost:8000/docs
+- **📊 Grafana Dashboard**: http://localhost:3000 (admin/admin)
+- **🔍 Prometheus Metrics**: http://localhost:9090
+- **💚 System Health**: http://localhost:8000/health
 
 ## 🔧 CLI Usage
 

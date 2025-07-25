@@ -131,7 +131,35 @@ app = FastAPI(
     redoc_url="/redoc" if config.api_debug else None
 )
 
-# Add security middleware first (before other middleware)
+# CORS middleware configuration for development and production
+cors_origins = config.security.cors_origins if config.security.cors_origins else [
+    "http://localhost",       # UI on localhost:80
+    "http://localhost:80",    # Explicit port 80
+    "http://localhost:3000",  # React dev server
+    "http://localhost:8080",  # Vue dev server
+    "http://localhost:5173",  # Vite dev server
+    "http://localhost:4200",  # Angular dev server
+    "http://127.0.0.1",       # UI on 127.0.0.1:80
+    "http://127.0.0.1:80",    # Explicit port 80
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8080", 
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:4200",
+    # Add file:// protocol for direct file access (if needed)
+    "file://",
+    # Add null origin for testing
+    "null"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+# Add security middleware (re-enabled after CORS removal)
 app.add_middleware(
     SecurityMiddleware,
     rate_limit_requests=config.security.rate_limit_requests,
@@ -146,16 +174,6 @@ app.add_middleware(
 if RATE_LIMITING_AVAILABLE:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-# Security middleware
-if config.security.cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=config.security.cors_origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE"],
-        allow_headers=["*"],
-    )
 
 # Trusted host middleware for production
 if not config.api_debug:
