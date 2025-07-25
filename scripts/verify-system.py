@@ -121,6 +121,7 @@ def main():
     print("\n🌐 Testing Basic Connectivity:")
     services = [
         ("WAF API", f"{API_BASE}/health"),
+        ("WAF Metrics", f"{API_BASE}/metrics"),
         ("UI", UI_BASE),
         ("Grafana", f"{GRAFANA_BASE}/api/health"),
         ("Prometheus", "http://localhost:9090/-/ready"),

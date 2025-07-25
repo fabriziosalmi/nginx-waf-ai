@@ -73,14 +73,17 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             response = await call_next(request)
             return response
         
+        # Skip rate limiting for metrics endpoint (for Prometheus scraping)
+        is_metrics_endpoint = request.url.path == "/metrics"
+        
         try:
-            # 1. Check if IP is blocked
-            if self._is_ip_blocked(client_ip):
+            # 1. Check if IP is blocked (skip for metrics)
+            if not is_metrics_endpoint and self._is_ip_blocked(client_ip):
                 self._log_security_event("blocked_ip_attempt", client_ip, request.url.path)
                 raise HTTPException(status_code=429, detail="IP temporarily blocked")
             
-            # 2. Rate limiting
-            if self.enable_dos_protection and self._is_rate_limited(client_ip):
+            # 2. Rate limiting (skip for metrics)
+            if not is_metrics_endpoint and self.enable_dos_protection and self._is_rate_limited(client_ip):
                 self._log_security_event("rate_limit_exceeded", client_ip, request.url.path)
                 raise HTTPException(status_code=429, detail="Rate limit exceeded")
             
@@ -89,18 +92,18 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 self._log_security_event("large_request", client_ip, request.url.path)
                 raise HTTPException(status_code=413, detail="Request too large")
             
-            # 4. Honeypot detection
-            if self.enable_honeypot and self._is_honeypot_request(request):
+            # 4. Honeypot detection (skip for metrics)
+            if not is_metrics_endpoint and self.enable_honeypot and self._is_honeypot_request(request):
                 self._handle_honeypot_request(client_ip, request)
                 raise HTTPException(status_code=404, detail="Not found")
             
-            # 5. Suspicious pattern detection
-            if self._has_suspicious_patterns(request):
+            # 5. Suspicious pattern detection (skip for metrics)
+            if not is_metrics_endpoint and self._has_suspicious_patterns(request):
                 self._increment_suspicious_activity(client_ip)
                 self._log_security_event("suspicious_pattern", client_ip, request.url.path)
             
-            # 6. Input validation
-            if self.enable_input_validation:
+            # 6. Input validation (skip for metrics since it's just a GET)
+            if not is_metrics_endpoint and self.enable_input_validation:
                 await self._validate_input(request)
             
             # Process request

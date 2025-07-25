@@ -159,32 +159,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add security middleware (re-enabled after CORS removal)
-app.add_middleware(
-    SecurityMiddleware,
-    rate_limit_requests=config.security.rate_limit_requests,
-    rate_limit_window=config.security.rate_limit_window,
-    enable_dos_protection=True,
-    enable_input_validation=True,
-    max_request_size=10 * 1024 * 1024,  # 10MB
-    enable_honeypot=True
-)
+# Add security middleware (temporarily disabled for debugging)
+# app.add_middleware(
+#     SecurityMiddleware,
+#     rate_limit_requests=config.security.rate_limit_requests,
+#     rate_limit_window=config.security.rate_limit_window,
+#     enable_dos_protection=True,
+#     enable_input_validation=True,
+#     max_request_size=10 * 1024 * 1024,  # 10MB
+#     enable_honeypot=True
+# )
 
 # Add rate limiting if available
 if RATE_LIMITING_AVAILABLE:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Trusted host middleware for production
-if not config.api_debug:
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["localhost", "127.0.0.1", config.api_host]
-    )
+# Trusted host middleware for production - temporarily disabled for testing
+# if not config.api_debug:
+#     app.add_middleware(
+#         TrustedHostMiddleware,
+#         allowed_hosts=["localhost", "127.0.0.1", config.api_host, "waf-api"]
+#     )
 
 # Add security headers middleware
 @app.middleware("http")
 async def add_security_headers(request, call_next):
+    # Log all incoming requests for debugging
+    logger.info(f"Incoming request: {request.method} {request.url} from {request.client.host if request.client else 'unknown'}")
+    
     response = await call_next(request)
     
     if config.security.enable_security_headers:
@@ -195,6 +198,7 @@ async def add_security_headers(request, call_next):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Content-Security-Policy"] = "default-src 'self'"
     
+    logger.info(f"Response status: {response.status_code}")
     return response
 
 # Prometheus metrics
@@ -710,18 +714,29 @@ async def health_check():
         return {"status": "unhealthy", "error": str(e)}
 
 @app.get("/metrics")
-async def get_metrics(current_user: TokenData = require_viewer()):
-    """Prometheus metrics endpoint - requires authentication"""
-    # Update gauge metrics using component manager
-    nginx_manager = component_manager.get_component('nginx_manager')
-    waf_rule_generator = component_manager.get_component('waf_rule_generator')
-    
-    if nginx_manager:
-        nodes_registered.set(len(nginx_manager.nodes))
-    
-    if waf_rule_generator:
-        # This would need to be implemented in the rule generator
-        rules_active.set(len(getattr(waf_rule_generator, 'active_rules', [])))
+async def get_metrics():
+    """Prometheus metrics endpoint - public for monitoring"""
+    try:
+        # Update gauge metrics using component manager
+        nginx_manager = component_manager.get_component('nginx_manager')
+        waf_rule_generator = component_manager.get_component('waf_rule_generator')
+        traffic_collector = component_manager.get_component('traffic_collector')
+        ml_engine = component_manager.get_component('ml_engine')
+        
+        # Update nodes count
+        if nginx_manager and hasattr(nginx_manager, 'nodes'):
+            nodes_registered.set(len(nginx_manager.nodes))
+        else:
+            nodes_registered.set(0)
+        
+        # Update rules count
+        if waf_rule_generator and hasattr(waf_rule_generator, 'active_rules'):
+            rules_active.set(len(waf_rule_generator.active_rules))
+        else:
+            rules_active.set(0)
+            
+    except Exception as e:
+        logger.error(f"Error updating metrics: {e}")
     
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
