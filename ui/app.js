@@ -9,11 +9,10 @@ createApp({
         const autoRefresh = ref(true);
         const showAddNodeModal = ref(false);
         
-        // API Base URL - Use host network since UI is accessed from browser
-        // When running in Docker, the browser connects from outside the container network
-        const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-            ? 'http://localhost:8000' 
-            : `http://${window.location.hostname}:8000`;
+        // API Base URL - Use proxy when served by nginx, direct connection for development
+        const API_BASE = window.location.port === '3000' || window.location.port === '8080'
+            ? `http://${window.location.hostname}:8000`  // Direct API access for development
+            : '';  // Use nginx proxy for production
         
         // Authentication
         const currentUser = ref({ username: 'admin' });

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Error | WAF AI Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+            color: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .error-container {
+            text-align: center;
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 500px;
+        }
+        .error-code {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #ff6b6b;
+            margin: 0;
+        }
+        .error-message {
+            font-size: 1.5rem;
+            margin: 1rem 0;
+            color: #666;
+        }
+        .error-description {
+            font-size: 1rem;
+            color: #888;
+            margin-bottom: 2rem;
+        }
+        .back-button {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #ff6b6b;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+        .back-button:hover {
+            background: #ff5252;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1 class="error-code">5xx</h1>
+        <h2 class="error-message">Server Error</h2>
+        <p class="error-description">
+            Something went wrong on our end. Please try again later.
+        </p>
+        <a href="/" class="back-button">← Back to Dashboard</a>
+    </div>
+</body>
+</html>

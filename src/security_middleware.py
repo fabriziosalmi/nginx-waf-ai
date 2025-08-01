@@ -76,34 +76,44 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         # Skip rate limiting for metrics endpoint (for Prometheus scraping)
         is_metrics_endpoint = request.url.path == "/metrics"
         
+        # Skip security checks for health endpoint and UI requests
+        is_health_endpoint = request.url.path == "/health"
+        is_ui_request = request.url.path.startswith("/api/") or request.url.path.startswith("/auth/")
+        
+        # Skip most security checks for safe endpoints
+        skip_security_checks = is_metrics_endpoint or is_health_endpoint
+        
         try:
-            # 1. Check if IP is blocked (skip for metrics)
-            if not is_metrics_endpoint and self._is_ip_blocked(client_ip):
+            # 1. Check if IP is blocked (skip for safe endpoints)
+            if not skip_security_checks and self._is_ip_blocked(client_ip):
                 self._log_security_event("blocked_ip_attempt", client_ip, request.url.path)
                 raise HTTPException(status_code=429, detail="IP temporarily blocked")
             
-            # 2. Rate limiting (skip for metrics)
-            if not is_metrics_endpoint and self.enable_dos_protection and self._is_rate_limited(client_ip):
-                self._log_security_event("rate_limit_exceeded", client_ip, request.url.path)
-                raise HTTPException(status_code=429, detail="Rate limit exceeded")
+            # 2. Rate limiting (more lenient for UI requests)
+            if not skip_security_checks and self.enable_dos_protection:
+                # Use higher limits for UI requests
+                rate_limit = self.rate_limit_requests * 5 if is_ui_request else self.rate_limit_requests
+                if self._is_rate_limited(client_ip, rate_limit):
+                    self._log_security_event("rate_limit_exceeded", client_ip, request.url.path)
+                    raise HTTPException(status_code=429, detail="Rate limit exceeded")
             
             # 3. Request size validation
             if self._is_request_too_large(request):
                 self._log_security_event("large_request", client_ip, request.url.path)
                 raise HTTPException(status_code=413, detail="Request too large")
             
-            # 4. Honeypot detection (skip for metrics)
-            if not is_metrics_endpoint and self.enable_honeypot and self._is_honeypot_request(request):
+            # 4. Honeypot detection (skip for safe endpoints)
+            if not skip_security_checks and self.enable_honeypot and self._is_honeypot_request(request):
                 self._handle_honeypot_request(client_ip, request)
                 raise HTTPException(status_code=404, detail="Not found")
             
-            # 5. Suspicious pattern detection (skip for metrics)
-            if not is_metrics_endpoint and self._has_suspicious_patterns(request):
+            # 5. Suspicious pattern detection (skip for safe endpoints)
+            if not skip_security_checks and self._has_suspicious_patterns(request):
                 self._increment_suspicious_activity(client_ip)
                 self._log_security_event("suspicious_pattern", client_ip, request.url.path)
             
-            # 6. Input validation (skip for metrics since it's just a GET)
-            if not is_metrics_endpoint and self.enable_input_validation:
+            # 6. Input validation (skip for safe endpoints)
+            if not skip_security_checks and self.enable_input_validation:
                 await self._validate_input(request)
             
             # Process request
@@ -158,17 +168,18 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             return True
         return False
     
-    def _is_rate_limited(self, ip: str) -> bool:
+    def _is_rate_limited(self, ip: str, custom_limit: int = None) -> bool:
         """Check if IP exceeds rate limits"""
         now = time.time()
         window_start = now - self.rate_limit_window
+        rate_limit = custom_limit if custom_limit is not None else self.rate_limit_requests
         
         # Clean old entries
         while self.request_counts[ip] and self.request_counts[ip][0] < window_start:
             self.request_counts[ip].popleft()
         
         # Check current rate
-        if len(self.request_counts[ip]) >= self.rate_limit_requests:
+        if len(self.request_counts[ip]) >= rate_limit:
             # Block IP if consistently hitting rate limits
             self.suspicious_activity[ip] += 1
             if self.suspicious_activity[ip] >= 5:
