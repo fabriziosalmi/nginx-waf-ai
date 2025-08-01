@@ -8557,3 +8557,4 @@
 2025/07/25 19:14:10 [error] 34#34: *8 open() "/usr/share/nginx/html/api/orders" failed (2: No such file or directory), client: 172.18.0.12, server: nginx-node-1, request: "GET /api/orders HTTP/1.1", host: "nginx-node-1"
 2025/07/25 19:14:11 [error] 34#34: *8 open() "/usr/share/nginx/html/api/cart" failed (2: No such file or directory), client: 172.18.0.12, server: nginx-node-1, request: "GET /api/cart HTTP/1.1", host: "nginx-node-1"
 2025/07/25 19:14:12 [error] 34#34: *8 open() "/usr/share/nginx/html/api/cart" failed (2: No such file or directory), client: 172.18.0.12, server: nginx-node-1, request: "GET /api/cart HTTP/1.1", host: "nginx-node-1"
+2025/07/25 19:14:15 [error] 34#34: *8 open() "/usr/share/nginx/html/api/comment" failed (2: No such file or directory), client: 172.18.0.12, server: nginx-node-1, request: "POST /api/comment HTTP/1.1", host: "nginx-node-1"
