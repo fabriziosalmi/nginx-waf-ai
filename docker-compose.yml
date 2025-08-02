@@ -118,19 +118,6 @@ services:
       - nginx-node-2
     restart: unless-stopped
 
-  # WAF AI Dashboard UI
-  waf-ui:
-    image: nginx:alpine
-    container_name: waf-ui
-    ports:
-      - "3000:80"  # Main UI on port 3000
-    volumes:
-      - ./ui:/usr/share/nginx/html:ro
-      - ./ui/nginx-simple.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - waf-api
-    restart: unless-stopped
-
   # Monitoring with Prometheus
   prometheus:
     image: prom/prometheus:latest
