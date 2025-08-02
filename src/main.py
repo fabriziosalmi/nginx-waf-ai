@@ -674,6 +674,30 @@ async def test_no_auth():
     """Simple test endpoint with no authentication"""
     return {"message": "This endpoint should work without auth", "timestamp": datetime.now().isoformat()}
 
+@app.get("/api/debug/traffic-collector")
+async def debug_traffic_collector():
+    """Debug endpoint to check traffic collector state"""
+    traffic_collector = component_manager.get_component('traffic_collector')
+    if not traffic_collector:
+        return {"error": "Traffic collector not found"}
+    
+    recent_requests = traffic_collector.get_recent_requests(10)
+    
+    return {
+        "total_collected_requests": len(traffic_collector.collected_requests),
+        "recent_requests_count": len(recent_requests),
+        "recent_requests_sample": [
+            {
+                "method": req.method,
+                "url": req.url,
+                "timestamp": req.timestamp.isoformat(),
+                "node_id": req.node_id
+            } for req in recent_requests[:3]
+        ],
+        "is_collecting": traffic_collector.is_collecting,
+        "timestamp": datetime.now().isoformat()
+    }
+
 
 @app.get("/")
 async def root():
@@ -1294,6 +1318,8 @@ async def process_threats_continuously():
                         
                         logger.info(f"THREAT PROCESSOR: Generated {len(new_rules)} new WAF rules in {rule_generation_time:.3f}s")
                         
+                        # Get nginx manager for deployment
+                        nginx_manager = component_manager.get_component('nginx_manager')
                         if new_rules and nginx_manager:
                             # Deploy rules to nginx nodes
                             logger.info(f"THREAT PROCESSOR: Deploying {len(new_rules)} rules to nginx nodes...")

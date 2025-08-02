@@ -30,6 +30,7 @@ services:
       - ./data:/app/data
       - ./models:/app/models
       - ./logs:/app/logs
+      - ./docker/shared/waf-rules:/app/waf-rules
     depends_on:
       redis:
         condition: service_healthy

@@ -225,9 +225,6 @@ class WAFRuleGenerator:
             "# Auto-generated WAF rules",
             f"# Generated at: {datetime.now().isoformat()}",
             "",
-            "# Rate limiting zones",
-            "limit_req_zone $binary_remote_addr zone=main:10m rate=10r/s;",
-            "",
             "# WAF Rules",
         ]
         
