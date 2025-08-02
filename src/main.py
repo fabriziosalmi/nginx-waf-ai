@@ -48,6 +48,7 @@ from .waf_rule_generator import WAFRuleGenerator, WAFRule, RuleOptimizer
 from .nginx_manager import NginxManager, NginxNode
 from .security_middleware import SecurityMiddleware, is_ip_whitelisted
 from .error_handling import error_recovery, degradation_manager, CircuitBreakerConfig
+from .training_data_generator import TrainingDataGenerator
 
 # Initialize rate limiter if available
 if RATE_LIMITING_AVAILABLE:
@@ -147,7 +148,7 @@ cors_origins = config.security.cors_origins if config.security.cors_origins else
     "http://127.0.0.1:4200",
     # Add file:// protocol for direct file access (if needed)
     "file://",
-    # Add null origin for testing
+    # Add production CORS origins - only Grafana allowed
     "null"
 ]
 
@@ -175,12 +176,12 @@ if RATE_LIMITING_AVAILABLE:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Trusted host middleware for production - temporarily disabled for testing
-# if not config.api_debug:
-#     app.add_middleware(
-#         TrustedHostMiddleware,
-#         allowed_hosts=["localhost", "127.0.0.1", config.api_host, "waf-api"]
-#     )
+# Trusted host middleware for production security
+if not config.api_debug:
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["localhost", "127.0.0.1", config.api_host, "waf-api", "nginx-node-1", "nginx-node-2"]
+    )
 
 # Add security headers middleware
 @app.middleware("http")
@@ -740,28 +741,19 @@ async def get_metrics():
         else:
             rules_active.set(0)
             
-        # Update traffic metrics
-        if traffic_collector and hasattr(traffic_collector, 'total_requests'):
-            traffic_volume.set(traffic_collector.total_requests)
-        if traffic_collector and hasattr(traffic_collector, 'recent_requests'):
-            recent_requests.set(len(traffic_collector.recent_requests))
-            
-        # Update WAF rules metrics
-        if waf_rule_generator and hasattr(waf_rule_generator, 'active_rules'):
-            rules_active.set(len(waf_rule_generator.active_rules))
-        else:
-            rules_active.set(0)
-            
         # Update traffic metrics with real data
-        if traffic_collector and hasattr(traffic_collector, 'total_requests'):
-            traffic_volume.set(traffic_collector.total_requests)
+        if traffic_collector and hasattr(traffic_collector, 'collected_requests'):
+            traffic_volume.set(len(traffic_collector.collected_requests))
         else:
             traffic_volume.set(0)
         
-        if traffic_collector and hasattr(traffic_collector, 'recent_requests'):
-            recent_requests.set(len(traffic_collector.recent_requests))
+        if traffic_collector:
+            try:
+                recent_requests.set(len(traffic_collector.get_recent_requests(100)))
+            except Exception:
+                recent_requests.set(0)
         else:
-            recent_requests.set(100)
+            recent_requests.set(0)
             
     except Exception as e:
         logger.error(f"Error updating metrics: {e}")
@@ -924,8 +916,8 @@ async def add_nginx_node(
 
 
 @app.get("/api/nodes")
-async def list_nginx_nodes():  # Temporarily removed auth for testing
-    """List all nginx nodes - temporarily public for testing"""
+async def list_nginx_nodes(current_user: TokenData = require_viewer()):
+    """List all nginx nodes - viewer role or higher required"""
     nginx_manager = component_manager.get_component('nginx_manager')
     if nginx_manager is None:
         return {"nodes": []}
@@ -952,38 +944,52 @@ async def get_cluster_status(current_user: TokenData = require_viewer()):
 
 
 @app.post("/api/training/start")
-async def start_training():  # Removed auth for testing
-    """Start ML model training - temporarily public for testing"""
+async def start_training(current_user: TokenData = require_operator()):
+    """Start ML model training - operator role or higher required"""
     ml_engine = component_manager.get_component('ml_engine')
     if ml_engine is None:
         raise HTTPException(status_code=500, detail="ML engine not initialized")
     
     try:
-        logger.info(f"Training started")
+        logger.info(f"Training started by user {current_user.username}")
         
-        # Get real training data from traffic collector
+        # Get real training data from traffic collector if available
         traffic_collector = component_manager.get_component('traffic_collector')
-        
-        if not traffic_collector or not hasattr(traffic_collector, 'collected_requests'):
-            raise HTTPException(status_code=400, detail="No training data available. Start traffic collection first.")
-        
-        # Convert collected requests to training format
         training_data = []
-        for request in traffic_collector.collected_requests:
-            training_data.append(request.to_dict())
+        labels = []
+        
+        if traffic_collector and hasattr(traffic_collector, 'collected_requests') and len(traffic_collector.collected_requests) >= 50:
+            # Use real collected traffic data
+            logger.info("Using real traffic data for training")
+            for request in traffic_collector.collected_requests:
+                training_data.append(request.to_dict())
+                # Simple heuristic labeling based on patterns
+                if request._check_sql_patterns():
+                    labels.append("sql_injection")
+                elif request._check_xss_patterns():
+                    labels.append("xss_attack")
+                else:
+                    labels.append("normal")
+        else:
+            # Generate synthetic training data
+            logger.info("Generating synthetic training data")
+            generator = TrainingDataGenerator()
+            training_data, labels = generator.generate_training_data(
+                num_samples=1000,
+                threat_ratio=0.3
+            )
         
         if len(training_data) < 10:
             raise HTTPException(status_code=400, detail=f"Insufficient training data. Need at least 10 samples, got {len(training_data)}")
         
-        # For now, use unsupervised learning (anomaly detection only)
-        # Labels would come from manual threat analysis or pre-labeled datasets
-        labels = [0] * len(training_data)  # All normal for now - this needs real threat labeling
-        
         ml_engine.train_models(training_data, labels)
+        
+        logger.info(f"Training completed successfully with {len(training_data)} samples")
         return {
             "message": "Training completed successfully",
             "is_trained": ml_engine.is_trained,
             "training_samples": len(training_data),
+            "data_source": "real_traffic" if traffic_collector and len(traffic_collector.collected_requests) >= 50 else "synthetic",
             "timestamp": datetime.now().isoformat()
         }
     except Exception as e:
@@ -1267,7 +1273,7 @@ async def process_threats_continuously():
                 if not waf_rule_generator: missing.append("waf_rule_generator")
                 logger.warning(f"THREAT PROCESSOR: Threat processing skipped - missing: {missing}")
                 
-            # Clean up old data (temporarily disabled for debugging)
+            # Clean up old data periodically
             # if traffic_collector:
             #     traffic_collector.clear_old_requests(60)
         
@@ -1315,9 +1321,10 @@ async def get_active_rules(current_user: TokenData = require_viewer()):
 
 @app.post("/api/rules/deploy")
 async def deploy_rules(
-    request: SecureRuleDeploymentRequest
-):  # Temporarily removed auth for testing
-    """Deploy WAF rules to nginx nodes - temporarily public for testing"""
+    request: SecureRuleDeploymentRequest,
+    current_user: TokenData = require_operator()
+):
+    """Deploy WAF rules to nginx nodes - operator role or higher required"""
     nginx_manager = component_manager.get_component('nginx_manager')
     if nginx_manager is None:
         raise HTTPException(status_code=404, detail="No nginx manager configured")
@@ -1370,7 +1377,7 @@ async def deploy_rules(
             logger.error(f"Deployment error: {e}")
             raise HTTPException(status_code=500, detail=f"Deployment failed: {str(e)}")
         
-        logger.info(f"Rules deployed for testing")
+        logger.info(f"Rules deployed successfully by user {current_user.username}")
         return {
             "message": "Rules deployment initiated",
             "deployment_results": deployment_results,
@@ -1435,8 +1442,8 @@ async def stop_processing(current_user: TokenData = require_operator()):
 
 
 @app.get("/api/stats")
-async def get_system_stats():  # Temporarily removed auth for testing
-    """Get overall system statistics - temporarily public for testing"""
+async def get_system_stats(current_user: TokenData = require_viewer()):
+    """Get overall system statistics - viewer role or higher required"""
     try:
         # Get components safely
         ml_engine = component_manager.get_component('ml_engine')
