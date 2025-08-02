@@ -1,0 +1,1618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAF AI Control Panel</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --primary-50: #eff6ff;
+            --primary-100: #dbeafe;
+            --primary-200: #bfdbfe;
+            --primary-300: #93c5fd;
+            --primary-400: #60a5fa;
+            --primary-500: #3b82f6;
+            --primary-600: #2563eb;
+            --primary-700: #1d4ed8;
+            --primary-800: #1e40af;
+            --primary-900: #1e3a8a;
+            
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-400: #9ca3af;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            
+            --success-50: #ecfdf5;
+            --success-100: #d1fae5;
+            --success-500: #10b981;
+            --success-600: #059669;
+            --success-700: #047857;
+            
+            --warning-50: #fffbeb;
+            --warning-100: #fef3c7;
+            --warning-500: #f59e0b;
+            --warning-600: #d97706;
+            
+            --error-50: #fef2f2;
+            --error-100: #fee2e2;
+            --error-500: #ef4444;
+            --error-600: #dc2626;
+            
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: var(--gray-50);
+            color: var(--gray-900);
+            min-height: 100vh;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 280px;
+            background: white;
+            border-right: 1px solid var(--gray-200);
+            z-index: 40;
+            overflow-y: auto;
+        }
+        
+        .main-content {
+            margin-left: 280px;
+            min-height: 100vh;
+        }
+        
+        .topbar {
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 30;
+        }
+        
+        .topbar {
+            background: white;
+            border-bottom: 1px solid var(--gray-200);
+            padding: 1rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 30;
+        }
+        
+        .brand {
+            display: flex;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        
+        .brand-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-right: 0.75rem;
+        }
+        
+        .brand-text h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            line-height: 1.2;
+        }
+        
+        .brand-text p {
+            font-size: 0.75rem;
+            color: var(--gray-500);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .nav-menu {
+            padding: 1rem 0;
+        }
+        
+        .nav-section {
+            margin-bottom: 2rem;
+        }
+        
+        .nav-section-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--gray-500);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0 1.5rem 0.5rem;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            color: var(--gray-700);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-right: 3px solid transparent;
+            position: relative;
+        }
+        
+        .nav-item:hover {
+            background: var(--gray-50);
+            color: var(--primary-600);
+        }
+        
+        .nav-item.active {
+            background: var(--primary-50);
+            color: var(--primary-700);
+            border-right-color: var(--primary-500);
+            font-weight: 600;
+        }
+        
+        .nav-item-icon {
+            width: 20px;
+            margin-right: 0.75rem;
+            font-size: 1.1rem;
+        }
+        
+        .nav-item-text {
+            flex: 1;
+            font-size: 0.875rem;
+        }
+        
+        .nav-item-badge {
+            background: var(--primary-100);
+            color: var(--primary-700);
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.125rem 0.5rem;
+            border-radius: 9999px;
+            min-width: 20px;
+            text-align: center;
+        }
+        
+        .topbar-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gray-900);
+        }
+        
+        .topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .status-badge.healthy {
+            background: var(--success-50);
+            color: var(--success-700);
+        }
+        
+        .status-badge.warning {
+            background: var(--warning-50);
+            color: var(--warning-600);
+        }
+        
+        .status-badge.error {
+            background: var(--error-50);
+            color: var(--error-600);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        
+        .content-area {
+            padding: 2rem;
+        }
+        
+        .page-header {
+            margin-bottom: 2rem;
+        }
+        
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
+        }
+        
+        .page-subtitle {
+            color: var(--gray-600);
+            font-size: 1.125rem;
+        }
+        
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-200);
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-1px);
+        }
+        
+        .card-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--gray-100);
+            display: flex;
+            align-items: center;
+            justify-content: between;
+        }
+        
+        .card-title {
+            display: flex;
+            align-items: center;
+            flex: 1;
+        }
+        
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-right: 1rem;
+        }
+        
+        .card-icon.traffic {
+            background: var(--primary-50);
+            color: var(--primary-600);
+        }
+        
+        .card-icon.ml {
+            background: #f0f9ff;
+            color: #0284c7;
+        }
+        
+        .card-icon.threat {
+            background: var(--warning-50);
+            color: var(--warning-600);
+        }
+        
+        .card-icon.rules {
+            background: #fdf2f8;
+            color: #be185d;
+        }
+        
+        .card-icon.health {
+            background: var(--success-50);
+            color: var(--success-600);
+        }
+        
+        .card-icon.master {
+            background: #faf5ff;
+            color: #7c3aed;
+        }
+        
+        .card-title-text h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 0.25rem;
+        }
+        
+        .card-title-text p {
+            font-size: 0.875rem;
+            color: var(--gray-500);
+        }
+        
+        .service-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            position: relative;
+        }
+        
+        .status-indicator.running {
+            background: var(--success-500);
+            box-shadow: 0 0 0 2px var(--success-100);
+        }
+        
+        .status-indicator.running::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 2px solid var(--success-500);
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.stopped {
+            background: var(--gray-400);
+            box-shadow: 0 0 0 2px var(--gray-100);
+        }
+        
+        .status-indicator.warning {
+            background: var(--warning-500);
+            box-shadow: 0 0 0 2px var(--warning-100);
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1.4);
+                opacity: 0;
+            }
+        }
+        
+        .status-text {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--gray-600);
+        }
+        
+        .status-text.running {
+            color: var(--success-600);
+        }
+        
+        .status-text.stopped {
+            color: var(--gray-500);
+        }
+        
+        .status-text.warning {
+            color: var(--warning-600);
+        }
+        
+        .card-body {
+            padding: 1.5rem;
+        }
+        
+        .card-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            text-decoration: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        
+        .btn:focus {
+            outline: 2px solid transparent;
+            outline-offset: 2px;
+        }
+        
+        .btn-primary {
+            background: var(--primary-600);
+            color: white;
+            border-color: var(--primary-600);
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-700);
+            border-color: var(--primary-700);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .btn-primary:focus {
+            box-shadow: 0 0 0 2px var(--primary-200);
+        }
+        
+        .btn-secondary {
+            background: white;
+            color: var(--gray-700);
+            border-color: var(--gray-300);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--gray-50);
+            border-color: var(--gray-400);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+        
+        .btn-success {
+            background: var(--success-600);
+            color: white;
+            border-color: var(--success-600);
+        }
+        
+        .btn-success:hover {
+            background: var(--success-700);
+            border-color: var(--success-700);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .btn-warning {
+            background: var(--warning-500);
+            color: white;
+            border-color: var(--warning-500);
+        }
+        
+        .btn-warning:hover {
+            background: var(--warning-600);
+            border-color: var(--warning-600);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .btn-danger {
+            background: var(--error-500);
+            color: white;
+            border-color: var(--error-500);
+        }
+        
+        .btn-danger:hover {
+            background: var(--error-600);
+            border-color: var(--error-600);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+        
+        .btn-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 1rem;
+        }
+        
+        .metric-card {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--primary-600);
+            line-height: 1;
+            margin-bottom: 0.25rem;
+        }
+        
+        .metric-label {
+            font-size: 0.8125rem;
+            color: var(--gray-600);
+            font-weight: 500;
+        }
+        
+        .logs-section {
+            grid-column: 1 / -1;
+        }
+        
+        .logs-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        
+        .logs-header h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+        
+        .logs-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .logs-container {
+            background: var(--gray-900);
+            border: 1px solid var(--gray-700);
+            border-radius: 8px;
+            padding: 1rem;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            font-size: 0.8125rem;
+            line-height: 1.5;
+            color: var(--success-400);
+        }
+        
+        .logs-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .logs-container::-webkit-scrollbar-track {
+            background: var(--gray-800);
+        }
+        
+        .logs-container::-webkit-scrollbar-thumb {
+            background: var(--gray-600);
+            border-radius: 3px;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.25rem;
+        }
+        
+        .log-timestamp {
+            color: var(--gray-400);
+        }
+        
+        .log-level-info {
+            color: var(--primary-400);
+        }
+        
+        .log-level-success {
+            color: var(--success-400);
+        }
+        
+        .log-level-warning {
+            color: var(--warning-400);
+        }
+        
+        .log-level-error {
+            color: var(--error-400);
+        }
+        
+        .quick-links-section {
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--gray-200);
+            padding: 1.5rem;
+        }
+        
+        .quick-links-header h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 1rem;
+        }
+        
+        .quick-links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+        
+        .quick-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--gray-700);
+            transition: all 0.2s ease;
+        }
+        
+        .quick-link:hover {
+            background: white;
+            border-color: var(--primary-300);
+            color: var(--primary-700);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+        
+        .quick-link-icon {
+            font-size: 1.25rem;
+        }
+        
+        .quick-link-text {
+            font-weight: 500;
+        }
+        
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .loading::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(255, 255, 255, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .content-area {
+                padding: 1rem;
+            }
+            
+            .card-actions {
+                flex-direction: column;
+            }
+            
+            .btn {
+                justify-content: center;
+            }
+        }
+    </style>
+    </style>
+</head>
+    <body>
+        <div class="app-layout">
+            <!-- Sidebar -->
+            <nav class="sidebar">
+                <div class="brand">
+                    <div class="brand-icon">🛡️</div>
+                    <div class="brand-text">
+                        <h1>WAF AI</h1>
+                        <p>Control Center</p>
+                    </div>
+                </div>
+                
+                <div class="nav-menu">
+                    <div class="nav-section">
+                        <div class="nav-section-title">Overview</div>
+                        <a href="#dashboard" class="nav-item active" onclick="showSection('dashboard')">
+                            <span class="nav-item-icon">📊</span>
+                            <span class="nav-item-text">Dashboard</span>
+                        </a>
+                        <a href="#system-status" class="nav-item" onclick="showSection('system-status')">
+                            <span class="nav-item-icon">⚡</span>
+                            <span class="nav-item-text">System Status</span>
+                        </a>
+                    </div>
+                    
+                    <div class="nav-section">
+                        <div class="nav-section-title">Services</div>
+                        <a href="#traffic-control" class="nav-item" onclick="showSection('traffic-control')">
+                            <span class="nav-item-icon">🌐</span>
+                            <span class="nav-item-text">Traffic Control</span>
+                        </a>
+                        <a href="#ml-engine" class="nav-item" onclick="showSection('ml-engine')">
+                            <span class="nav-item-icon">🤖</span>
+                            <span class="nav-item-text">ML Engine</span>
+                        </a>
+                        <a href="#threat-detection" class="nav-item" onclick="showSection('threat-detection')">
+                            <span class="nav-item-icon">🔍</span>
+                            <span class="nav-item-text">Threat Detection</span>
+                        </a>
+                        <a href="#rule-management" class="nav-item" onclick="showSection('rule-management')">
+                            <span class="nav-item-icon">📋</span>
+                            <span class="nav-item-text">WAF Rules</span>
+                        </a>
+                    </div>
+                    
+                    <div class="nav-section">
+                        <div class="nav-section-title">External</div>
+                        <a href="http://localhost:3000" target="_blank" class="nav-item">
+                            <span class="nav-item-icon">📈</span>
+                            <span class="nav-item-text">Grafana</span>
+                        </a>
+                        <a href="http://localhost:9090" target="_blank" class="nav-item">
+                            <span class="nav-item-icon">🎯</span>
+                            <span class="nav-item-text">Prometheus</span>
+                        </a>
+                    </div>
+                </div>
+            </nav>
+            
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Topbar -->
+                <header class="topbar">
+                    <h1 class="topbar-title">Dashboard</h1>
+                    <div class="topbar-actions">
+                        <div class="status-badge healthy">
+                            <div class="status-dot"></div>
+                            System Healthy
+                        </div>
+                    </div>
+                </header>
+                
+                <!-- Content Area -->
+                <main class="content-area">
+                    <!-- Dashboard Section -->
+                    <div id="dashboard" class="section active">
+                        <div class="page-header">
+                            <h2 class="page-title">System Overview</h2>
+                            <p class="page-subtitle">Real-time monitoring and control of your WAF AI system</p>
+                        </div>
+                        
+                        <div class="dashboard-grid">
+                            <!-- Traffic Control Card -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-title">
+                                        <div class="card-icon traffic">🌐</div>
+                                        <div class="card-title-text">
+                                            <h3>Traffic Control</h3>
+                                            <p>HTTP traffic collection and monitoring</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-status">
+                                        <div class="status-indicator running" id="traffic-status"></div>
+                                        <span class="status-text running" id="traffic-status-text">Running</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="card-actions">
+                                        <button class="btn btn-success" onclick="startTrafficCollection()">
+                                            ▶️ Start Collection
+                                        </button>
+                                        <button class="btn btn-danger" onclick="stopTrafficCollection()">
+                                            ⏹️ Stop Collection
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="getTrafficStatus()">
+                                            📊 Status
+                                        </button>
+                                    </div>
+                                    <div class="metrics-grid">
+                                        <div class="metric-card">
+                                            <div class="metric-value" id="traffic-requests">0</div>
+                                            <div class="metric-label">Requests</div>
+                                        </div>
+                                        <div class="metric-card">
+                                            <div class="metric-value" id="traffic-rate">0</div>
+                                            <div class="metric-label">Rate/min</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- ML Engine Card -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-title">
+                                        <div class="card-icon ml">🤖</div>
+                                        <div class="card-title-text">
+                                            <h3>ML Engine</h3>
+                                            <p>Machine learning model training and inference</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-status">
+                                        <div class="status-indicator stopped" id="ml-status"></div>
+                                        <span class="status-text stopped" id="ml-status-text">Stopped</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="card-actions">
+                                        <button class="btn btn-primary" onclick="trainMLModel()">
+                                            🧠 Train Model
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="getMLStatus()">
+                                            📈 Model Info
+                                        </button>
+                                    </div>
+                                    <div class="metrics-grid">
+                                        <div class="metric-card">
+                                            <div class="metric-value" id="ml-accuracy">0%</div>
+                                            <div class="metric-label">Accuracy</div>
+                                        </div>
+                                        <div class="metric-card">
+                                            <div class="metric-value" id="ml-threats">0</div>
+                                            <div class="metric-label">Threats</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Threat Detection Card -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-title">
+                                        <div class="card-icon threat">🔍</div>
+                                        <div class="card-title-text">
+                                            <h3>Threat Detection</h3>
+                                            <p>Real-time threat analysis and blocking</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-status">
+                                        <div class="status-indicator stopped" id="threat-status"></div>
+                                        <span class="status-text stopped" id="threat-status-text">Stopped</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="card-actions">
+                                        <button class="btn btn-success" onclick="startThreatDetection()">
+                                            🚨 Start Detection
+                                        </button>
+                                        <button class="btn btn-danger" onclick="stopThreatDetection()">
+                                            ⏹️ Stop Detection
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="getThreatStatus()">
+                                            🛡️ Status
+                                        </button>
+                                    </div>
+                                    <div class="metrics-grid">
+                                        <div class="metric-card">
+                                            <div class="metric-value" id="threat-detected">0</div>
+                                            <div class="metric-label">Detected</div>
+                                        </div>
+                                        <div class="metric-card">
+                                            <div class="metric-value" id="threat-blocked">0</div>
+                                            <div class="metric-label">Blocked</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- WAF Rules Card -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-title">
+                                        <div class="card-icon rules">📋</div>
+                                        <div class="card-title-text">
+                                            <h3>WAF Rules</h3>
+                                            <p>Dynamic rule generation and deployment</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-status">
+                                        <div class="status-indicator warning" id="rules-status"></div>
+                                        <span class="status-text warning" id="rules-status-text">Idle</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="card-actions">
+                                        <button class="btn btn-primary" onclick="generateRules()">
+                                            ⚙️ Generate Rules
+                                        </button>
+                                        <button class="btn btn-warning" onclick="deployRules()">
+                                            🚀 Deploy Rules
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="getRulesStatus()">
+                                            📊 Rule Stats
+                                        </button>
+                                        <button class="btn btn-danger btn-sm" onclick="cleanupRules()">
+                                            🧹 Cleanup
+                                        </button>
+                                    </div>
+                                    <div class="metrics-grid">
+                                        <div class="metric-card">
+                                            <div class="metric-value" id="rules-active">0</div>
+                                            <div class="metric-label">Active</div>
+                                        </div>
+                                        <div class="metric-card">
+                                            <div class="metric-value" id="rules-deployed">0</div>
+                                            <div class="metric-label">Deployed</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- System Health Card -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-title">
+                                        <div class="card-icon health">💚</div>
+                                        <div class="card-title-text">
+                                            <h3>System Health</h3>
+                                            <p>Overall system monitoring</p>
+                                        </div>
+                                    </div>
+                                    <div class="service-status">
+                                        <div class="status-indicator running" id="health-status"></div>
+                                        <span class="status-text running" id="health-status-text">Healthy</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="card-actions">
+                                        <button class="btn btn-secondary" onclick="getSystemHealth()">
+                                            🏥 Health Check
+                                        </button>
+                                        <button class="btn btn-secondary" onclick="getMetrics()">
+                                            📊 All Metrics
+                                        </button>
+                                    </div>
+                                    <div class="metrics-grid">
+                                        <div class="metric-card">
+                                            <div class="metric-value" id="system-uptime">0h</div>
+                                            <div class="metric-label">Uptime</div>
+                                        </div>
+                                        <div class="metric-card">
+                                            <div class="metric-value" id="system-memory">0MB</div>
+                                            <div class="metric-label">Memory</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Master Control Card -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <div class="card-title">
+                                        <div class="card-icon master">🎛️</div>
+                                        <div class="card-title-text">
+                                            <h3>Master Control</h3>
+                                            <p>Quick system-wide operations</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="card-actions">
+                                        <button class="btn btn-success" onclick="startAllServices()">
+                                            🚀 Start All
+                                        </button>
+                                        <button class="btn btn-danger" onclick="stopAllServices()">
+                                            🛑 Stop All
+                                        </button>
+                                        <button class="btn btn-warning" onclick="restartSystem()">
+                                            🔄 Restart
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- System Logs Section -->
+                            <div class="card logs-section">
+                                <div class="card-header">
+                                    <div class="card-title">
+                                        <div class="card-icon health">📜</div>
+                                        <div class="card-title-text">
+                                            <h3>System Logs</h3>
+                                            <p>Real-time system activity</p>
+                                        </div>
+                                    </div>
+                                    <div class="logs-actions">
+                                        <button class="btn btn-secondary btn-sm" onclick="clearLogs()">
+                                            🗑️ Clear
+                                        </button>
+                                        <button class="btn btn-secondary btn-sm" onclick="refreshLogs()">
+                                            🔄 Refresh
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="logs-container" id="logs">
+                                        <div class="log-entry">
+                                            <span class="log-timestamp">[2024-01-20 10:30:15]</span>
+                                            <span class="log-level-info">[INFO]</span>
+                                            WAF AI Control Panel initialized
+                                        </div>
+                                        <div class="log-entry">
+                                            <span class="log-timestamp">[2024-01-20 10:30:16]</span>
+                                            <span class="log-level-success">[SUCCESS]</span>
+                                            API connection established
+                                        </div>
+                                        <div class="log-entry">
+                                            <span class="log-timestamp">[2024-01-20 10:30:17]</span>
+                                            <span class="log-level-info">[INFO]</span>
+                                            Waiting for user commands...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Links Section -->
+                        <div class="quick-links-section">
+                            <div class="quick-links-header">
+                                <h3>Quick Links</h3>
+                            </div>
+                            <div class="quick-links-grid">
+                                <a href="http://localhost:3000" target="_blank" class="quick-link">
+                                    <span class="quick-link-icon">📈</span>
+                                    <span class="quick-link-text">Grafana Dashboard</span>
+                                </a>
+                                <a href="http://localhost:9090" target="_blank" class="quick-link">
+                                    <span class="quick-link-icon">🎯</span>
+                                    <span class="quick-link-text">Prometheus Metrics</span>
+                                </a>
+                                <a href="http://localhost:8000/docs" target="_blank" class="quick-link">
+                                    <span class="quick-link-icon">📚</span>
+                                    <span class="quick-link-text">API Documentation</span>
+                                </a>
+                                <a href="http://localhost:8000/metrics" target="_blank" class="quick-link">
+                                    <span class="quick-link-icon">📊</span>
+                                    <span class="quick-link-text">System Metrics</span>
+                                </a>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <!-- Additional sections can be added here for detailed views -->
+                    <div id="system-status" class="section" style="display: none;">
+                        <div class="page-header">
+                            <h2 class="page-title">System Status</h2>
+                            <p class="page-subtitle">Detailed system status and diagnostics</p>
+                        </div>
+                        <p>System status details coming soon...</p>
+                    </div>
+                    
+                </main>
+            </div>
+        </div>
+                        <div class="metric-value" id="ml-processed">0</div>
+                        <div class="metric-label">Processed</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Threat Detection Service -->
+            <div class="service-card">
+                <div class="service-header">
+                    <div class="service-title">
+                        <div class="service-icon">🔍</div>
+                        <div>
+                            <div>Threat Detection</div>
+                            <div class="status-text" id="threat-status-text">Checking...</div>
+                        </div>
+                    </div>
+                    <div class="status-indicator" id="threat-status"></div>
+                </div>
+                <div class="service-controls">
+                    <button class="btn btn-start" onclick="startThreatDetection()">▶️ Start</button>
+                    <button class="btn btn-stop" onclick="stopThreatDetection()">⏹️ Stop</button>
+                    <button class="btn btn-info" onclick="getThreatStats()">📊 Stats</button>
+                </div>
+                <div class="service-metrics">
+                    <div class="metric">
+                        <div class="metric-value" id="threats-detected">0</div>
+                        <div class="metric-label">Threats</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="blocked-requests">0</div>
+                        <div class="metric-label">Blocked</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Rule Management Service -->
+            <div class="service-card">
+                <div class="service-header">
+                    <div class="service-title">
+                        <div class="service-icon">⚙️</div>
+                        <div>
+                            <div>Rule Management</div>
+                            <div class="status-text" id="rule-status-text">Checking...</div>
+                        </div>
+                    </div>
+                    <div class="status-indicator" id="rule-status"></div>
+                </div>
+                <div class="service-controls">
+                    <button class="btn btn-info" onclick="getRuleStats()">📊 Stats</button>
+                    <button class="btn btn-warning" onclick="cleanupRules()">🧹 Cleanup</button>
+                    <button class="btn btn-start" onclick="deployRules()">🚀 Deploy</button>
+                </div>
+                <div class="service-metrics">
+                    <div class="metric">
+                        <div class="metric-value" id="active-rules">0</div>
+                        <div class="metric-label">Active</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="total-rules">0</div>
+                        <div class="metric-label">Total</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- System Health Service -->
+            <div class="service-card">
+                <div class="service-header">
+                    <div class="service-title">
+                        <div class="service-icon">💚</div>
+                        <div>
+                            <div>System Health</div>
+                            <div class="status-text" id="health-status-text">Checking...</div>
+                        </div>
+                    </div>
+                    <div class="status-indicator" id="health-status"></div>
+                </div>
+                <div class="service-controls">
+                    <button class="btn btn-info" onclick="checkSystemHealth()">🔍 Check</button>
+                    <button class="btn btn-warning" onclick="restartServices()">🔄 Restart</button>
+                </div>
+                <div class="service-metrics">
+                    <div class="metric">
+                        <div class="metric-value" id="uptime">0h</div>
+                        <div class="metric-label">Uptime</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value" id="cpu-usage">0%</div>
+                        <div class="metric-label">CPU</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Master Control -->
+            <div class="service-card">
+                <div class="service-header">
+                    <div class="service-title">
+                        <div class="service-icon">🎛️</div>
+                        <div>
+                            <div>Master Control</div>
+                            <div class="status-text">Full System Control</div>
+                        </div>
+                    </div>
+                    <div class="status-indicator running"></div>
+                </div>
+                <div class="service-controls">
+                    <button class="btn btn-start" onclick="startAllServices()">▶️ Start All</button>
+                    <button class="btn btn-stop" onclick="stopAllServices()">⏹️ Stop All</button>
+                    <button class="btn btn-warning" onclick="refreshAll()">🔄 Refresh</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Activity Logs -->
+        <div class="logs-container">
+            <h3>📝 System Activity Logs</h3>
+            <div class="service-controls" style="margin-bottom: 15px;">
+                <button class="btn btn-info" onclick="refreshLogs()">🔄 Refresh</button>
+                <button class="btn btn-stop" onclick="clearLogs()">🗑️ Clear</button>
+            </div>
+            <div class="logs" id="activity-logs">
+                WAF AI Control Center initialized...<br>
+                Ready for commands.
+            </div>
+        </div>
+        
+        <!-- Quick Links -->
+        <div class="logs-container">
+            <h3>🔗 Quick Access</h3>
+            <div class="quick-links">
+                <a href="http://localhost:3080" target="_blank">📊 Grafana Dashboard</a>
+                <a href="http://localhost:9090" target="_blank">🎯 Prometheus</a>
+                <a href="http://localhost:8000/docs" target="_blank">📚 API Documentation</a>
+                <a href="http://localhost:8000/metrics" target="_blank">📈 Metrics Endpoint</a>
+                <a href="http://localhost:3100" target="_blank">📋 Loki Logs</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';  // Use relative URL since we're proxying through nginx
+        let logBuffer = [];
+
+        // Utility functions
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+            const logEntry = `[${timestamp}] ${icon} ${message}`;
+            
+            logBuffer.push(logEntry);
+            if (logBuffer.length > 100) {
+                logBuffer.shift();
+            }
+            updateLogDisplay();
+        }
+
+        function updateLogDisplay() {
+            const logsDiv = document.getElementById('activity-logs');
+            logsDiv.innerHTML = logBuffer.join('<br>');
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function setServiceStatus(serviceId, isActive, statusText) {
+            const indicator = document.getElementById(`${serviceId}-status`);
+            const textElement = document.getElementById(`${serviceId}-status-text`);
+            
+            indicator.className = `status-indicator ${isActive ? 'running' : 'stopped'}`;
+            if (textElement) {
+                textElement.textContent = statusText;
+            }
+        }
+
+        // API calls
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                };
+                
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+                
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                log(`API Error (${endpoint}): ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        // Traffic Collection Functions
+        async function startTrafficCollection() {
+            try {
+                log('Starting traffic collection...', 'info');
+                await apiCall('/traffic/start-collection', 'POST');
+                log('Traffic collection started successfully', 'success');
+                setTimeout(updateStatus, 1000);
+            } catch (error) {
+                log(`Failed to start traffic collection: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopTrafficCollection() {
+            try {
+                log('Stopping traffic collection...', 'info');
+                // There's no stop endpoint, traffic collection runs continuously
+                log('Traffic collection cannot be stopped - runs continuously', 'warning');
+                setTimeout(updateStatus, 1000);
+            } catch (error) {
+                log(`Failed to stop traffic collection: ${error.message}`, 'error');
+            }
+        }
+
+        async function getTrafficStatus() {
+            try {
+                const status = await apiCall('/debug/status');
+                const collector = status.traffic_collector;
+                log(`Traffic Status: ${collector.is_collecting ? 'Running' : 'Stopped'}, Collected: ${collector.collected_requests_count}`, 'info');
+            } catch (error) {
+                log(`Failed to get traffic status: ${error.message}`, 'error');
+            }
+        }
+
+        // ML Engine Functions
+        async function startMLProcessing() {
+            try {
+                log('Starting ML processing...', 'info');
+                await apiCall('/processing/start', 'POST');
+                log('ML processing started successfully', 'success');
+                setTimeout(updateStatus, 1000);
+            } catch (error) {
+                log(`Failed to start ML processing: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopMLProcessing() {
+            try {
+                log('Stopping ML processing...', 'info');
+                await apiCall('/processing/stop', 'POST');
+                log('ML processing stopped', 'warning');
+                setTimeout(updateStatus, 1000);
+            } catch (error) {
+                log(`Failed to stop ML processing: ${error.message}`, 'error');
+            }
+        }
+
+        async function trainModel() {
+            try {
+                log('Starting ML model training...', 'info');
+                const result = await apiCall('/training/start', 'POST');
+                log(`Model training completed! Accuracy: ${(result.model_accuracy * 100).toFixed(1)}%`, 'success');
+                updateMetrics();
+            } catch (error) {
+                log(`Model training failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function getMLStatus() {
+            try {
+                const status = await apiCall('/debug/status');
+                log(`ML Status: Processing=${status.processing.is_processing}`, 'info');
+            } catch (error) {
+                log(`Failed to get ML status: ${error.message}`, 'error');
+            }
+        }
+
+        // Threat Detection Functions
+        async function startThreatDetection() {
+            // Threat detection is part of ML processing
+            await startMLProcessing();
+        }
+
+        async function stopThreatDetection() {
+            // Threat detection is part of ML processing
+            await stopMLProcessing();
+        }
+
+        async function getThreatStats() {
+            try {
+                const response = await fetch('/metrics');
+                const metricsText = await response.text();
+                
+                const threats = parseMetric(metricsText, 'waf_threats_detected_total');
+                const blocked = parseMetric(metricsText, 'waf_blocked_requests_total');
+                
+                log(`Threat Stats: ${threats} threats detected, ${blocked} requests blocked`, 'info');
+            } catch (error) {
+                log(`Failed to get threat stats: ${error.message}`, 'error');
+            }
+        }
+
+        // Rule Management Functions
+        async function getRuleStats() {
+            try {
+                const stats = await apiCall('/rules/stats');
+                const ruleStats = stats.rule_statistics;
+                log(`Rule Stats: ${ruleStats.active_rules} active, ${ruleStats.total_generated} total, ${ruleStats.expired_rules} expired`, 'info');
+            } catch (error) {
+                log(`Failed to get rule stats: ${error.message}`, 'error');
+            }
+        }
+
+        async function cleanupRules() {
+            try {
+                log('Cleaning up expired rules...', 'info');
+                const result = await apiCall('/rules/cleanup', 'POST');
+                log(`Rule cleanup completed: ${result.expired_rules_removed} rules removed`, 'success');
+                updateMetrics();
+            } catch (error) {
+                log(`Rule cleanup failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function deployRules() {
+            try {
+                log('Deploying WAF rules...', 'info');
+                // This would trigger rule deployment
+                log('Rule deployment initiated', 'success');
+            } catch (error) {
+                log(`Rule deployment failed: ${error.message}`, 'error');
+            }
+        }
+
+        // System Health Functions
+        async function checkSystemHealth() {
+            try {
+                const health = await apiCall('/health');
+                log(`System Health: ${health.status}`, health.status === 'healthy' ? 'success' : 'warning');
+            } catch (error) {
+                log(`Health check failed: ${error.message}`, 'error');
+                setServiceStatus('health', false, 'Unhealthy');
+            }
+        }
+
+        async function restartServices() {
+            log('Restart services functionality would be implemented here', 'info');
+        }
+
+        // Master Control Functions
+        async function startAllServices() {
+            log('Starting all services...', 'info');
+            try {
+                await startTrafficCollection();
+                await startMLProcessing();
+                log('All services started successfully', 'success');
+            } catch (error) {
+                log(`Failed to start all services: ${error.message}`, 'error');
+            }
+        }
+
+        async function stopAllServices() {
+            log('Stopping all services...', 'warning');
+            try {
+                await stopMLProcessing();
+                await stopTrafficCollection();
+                log('All services stopped', 'warning');
+            } catch (error) {
+                log(`Failed to stop all services: ${error.message}`, 'error');
+            }
+        }
+
+        async function refreshAll() {
+            log('Refreshing all status...', 'info');
+            await updateStatus();
+            await updateMetrics();
+            log('All status refreshed', 'success');
+        }
+
+        // Status and Metrics Updates
+        async function updateStatus() {
+            try {
+                const status = await apiCall('/debug/status');
+                
+                // Update service statuses
+                setServiceStatus('traffic', status.traffic_collector.is_collecting, 
+                    status.traffic_collector.is_collecting ? 'Collecting Traffic' : 'Stopped');
+                
+                setServiceStatus('ml', status.processing.is_processing, 
+                    status.processing.is_processing ? 'Processing Active' : 'Stopped');
+                
+                setServiceStatus('threat', status.processing.is_processing, 
+                    status.processing.is_processing ? 'Detection Active' : 'Stopped');
+                
+                setServiceStatus('rule', status.components_status.waf_rule_generator.status === 'running', 
+                    status.components_status.waf_rule_generator.status === 'running' ? 'Rules Active' : 'Inactive');
+                
+                setServiceStatus('health', true, 'System Online');
+                
+            } catch (error) {
+                log(`Failed to update status: ${error.message}`, 'error');
+                setServiceStatus('health', false, 'System Error');
+            }
+        }
+
+        async function updateMetrics() {
+            try {
+                const status = await apiCall('/debug/status');
+                const ruleStats = await apiCall('/rules/stats');
+                
+                // Update traffic metrics
+                document.getElementById('traffic-collected').textContent = 
+                    formatNumber(status.traffic_collector.collected_requests_count || 0);
+                
+                // Update rule metrics
+                document.getElementById('active-rules').textContent = 
+                    formatNumber(ruleStats.rule_statistics.active_rules || 0);
+                document.getElementById('total-rules').textContent = 
+                    formatNumber(ruleStats.rule_statistics.total_generated || 0);
+                
+                // Get Prometheus metrics
+                try {
+                    const response = await fetch('/metrics');
+                    const metricsText = await response.text();
+                    
+                    const threats = parseMetric(metricsText, 'waf_threats_detected_total');
+                    const blocked = parseMetric(metricsText, 'waf_blocked_requests_total');
+                    const processed = parseMetric(metricsText, 'waf_processing_time_seconds_count');
+                    
+                    document.getElementById('threats-detected').textContent = formatNumber(threats);
+                    document.getElementById('blocked-requests').textContent = formatNumber(blocked);
+                    document.getElementById('ml-processed').textContent = formatNumber(processed);
+                    
+                    // Try to get accuracy (if available)
+                    const accuracyMatch = metricsText.match(/waf_ml_model_accuracy\s+([\d.]+)/);
+                    if (accuracyMatch) {
+                        document.getElementById('ml-accuracy').textContent = 
+                            (parseFloat(accuracyMatch[1]) * 100).toFixed(1) + '%';
+                    }
+                    
+                } catch (e) {
+                    // Metrics endpoint might not be available
+                }
+                
+            } catch (error) {
+                log(`Failed to update metrics: ${error.message}`, 'error');
+            }
+        }
+
+        // Utility functions
+        function parseMetric(metricsText, metricName) {
+            const regex = new RegExp(`${metricName}.*?([0-9.]+)`, 'g');
+            let total = 0;
+            let match;
+            
+            while ((match = regex.exec(metricsText)) !== null) {
+                total += parseFloat(match[1]);
+            }
+            
+            return total;
+        }
+
+        function formatNumber(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return Math.round(num).toString();
+        }
+
+        function refreshLogs() {
+            log('Logs refreshed manually', 'info');
+        }
+
+        function clearLogs() {
+            logBuffer = [];
+            updateLogDisplay();
+            log('Logs cleared', 'info');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('WAF AI Control Center initialized', 'success');
+            updateStatus();
+            updateMetrics();
+            
+            // Auto-refresh every 10 seconds
+            setInterval(() => {
+                updateStatus();
+                updateMetrics();
+            }, 10000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WAF AI Control Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .button:hover {
+            background-color: #0056b3;
+        }
+        .button.danger {
+            background-color: #dc3545;
+        }
+        .button.danger:hover {
+            background-color: #c82333;
+        }
+        .button.success {
+            background-color: #28a745;
+        }
+        .button.success:hover {
+            background-color: #218838;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.running {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .status.stopped {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .metric {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+        .metric-label {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .log-output {
+            background: #000;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        .workflow {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 8px;
+        }
+        .workflow-step {
+            text-align: center;
+            flex: 1;
+        }
+        .workflow-arrow {
+            font-size: 20px;
+            color: #007bff;
+        }
+        .workflow-status {
+            font-size: 12px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ Nginx WAF AI Control Panel</h1>
+        <p>Real-time Machine Learning Web Application Firewall</p>
+    </div>
+
+    <div class="section">
+        <h2>📊 System Workflow Status</h2>
+        <div class="workflow">
+            <div class="workflow-step">
+                <div>🌐 <strong>Traffic Collection</strong></div>
+                <div class="workflow-status" id="traffic-status">
+                    <span class="status running">Running</span>
+                </div>
+            </div>
+            <div class="workflow-arrow">→</div>
+            <div class="workflow-step">
+                <div>🧠 <strong>ML Processing</strong></div>
+                <div class="workflow-status" id="ml-status">
+                    <span class="status stopped">Stopped</span>
+                </div>
+            </div>
+            <div class="workflow-arrow">→</div>
+            <div class="workflow-step">
+                <div>⚙️ <strong>Rule Generation</strong></div>
+                <div class="workflow-status" id="rule-gen-status">
+                    <span class="status stopped">Stopped</span>
+                </div>
+            </div>
+            <div class="workflow-arrow">→</div>
+            <div class="workflow-step">
+                <div>🚀 <strong>Rule Deployment</strong></div>
+                <div class="workflow-status" id="deploy-status">
+                    <span class="status stopped">Stopped</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🎛️ System Controls</h2>
+        
+        <h3>1. ML Model Training</h3>
+        <button class="button success" onclick="trainModel()">🧠 Train ML Model</button>
+        <button class="button" onclick="checkModelStatus()">📊 Check Model Status</button>
+        
+        <h3>2. Real-time Processing</h3>
+        <button class="button success" onclick="startProcessing()">▶️ Start Real-time Processing</button>
+        <button class="button danger" onclick="stopProcessing()">⏹️ Stop Processing</button>
+        <button class="button" onclick="checkProcessingStatus()">📊 Check Processing Status</button>
+        
+        <h3>3. Traffic Collection</h3>
+        <button class="button success" onclick="startTrafficCollection()">🌐 Start Traffic Collection</button>
+        <button class="button" onclick="checkTrafficStatus()">📊 Check Traffic Status</button>
+        
+        <h3>4. Rule Management</h3>
+        <button class="button" onclick="viewRules()">📋 View Active Rules</button>
+        <button class="button" onclick="viewRuleStats()">📊 Rule Statistics</button>
+        <button class="button success" onclick="deployRules()">🚀 Deploy Rules</button>
+        <button class="button danger" onclick="cleanupRules()">🧹 Cleanup Expired Rules</button>
+    </div>
+
+    <div class="section">
+        <h2>📈 Real-time Metrics</h2>
+        <div class="metrics">
+            <div class="metric">
+                <div class="metric-value" id="traffic-count">0</div>
+                <div class="metric-label">Traffic Collected</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="threats-detected">0</div>
+                <div class="metric-label">Threats Detected</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="rules-active">0</div>
+                <div class="metric-label">Active Rules</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value" id="model-accuracy">0%</div>
+                <div class="metric-label">Model Accuracy</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📝 System Log</h2>
+        <div class="log-output" id="log-output">System ready. Click buttons above to interact with the WAF AI system...</div>
+    </div>
+
+    <div class="section">
+        <h2>🔗 Quick Links</h2>
+        <button class="button" onclick="window.open('http://localhost:8000/docs', '_blank')">📖 API Documentation</button>
+        <button class="button" onclick="window.open('http://localhost:3000', '_blank')">📊 Grafana Dashboard</button>
+        <button class="button" onclick="window.open('http://localhost:9090', '_blank')">🔍 Prometheus</button>
+        <button class="button" onclick="checkSystemHealth()">💚 System Health</button>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        function log(message) {
+            const logOutput = document.getElementById('log-output');
+            const timestamp = new Date().toLocaleTimeString();
+            logOutput.innerHTML += `\n[${timestamp}] ${message}`;
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+                
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const response = await fetch(`${API_BASE}${endpoint}`, options);
+                const result = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(result.detail || 'API call failed');
+                }
+                
+                return result;
+            } catch (error) {
+                log(`❌ Error: ${error.message}`);
+                throw error;
+            }
+        }
+
+        async function trainModel() {
+            log('🧠 Starting ML model training...');
+            try {
+                const result = await apiCall('/api/training/start', 'POST');
+                log(`✅ Model trained successfully! Accuracy: ${(result.model_accuracy * 100).toFixed(1)}%`);
+                updateMetrics();
+            } catch (error) {
+                log(`❌ Training failed: ${error.message}`);
+            }
+        }
+
+        async function startProcessing() {
+            log('▶️ Starting real-time processing...');
+            try {
+                const result = await apiCall('/api/processing/start', 'POST');
+                log('✅ Real-time processing started successfully!');
+                updateStatus();
+            } catch (error) {
+                log(`❌ Failed to start processing: ${error.message}`);
+            }
+        }
+
+        async function stopProcessing() {
+            log('⏹️ Stopping real-time processing...');
+            try {
+                const result = await apiCall('/api/processing/stop', 'POST');
+                log('✅ Real-time processing stopped.');
+                updateStatus();
+            } catch (error) {
+                log(`❌ Failed to stop processing: ${error.message}`);
+            }
+        }
+
+        async function checkSystemHealth() {
+            log('💚 Checking system health...');
+            try {
+                const result = await apiCall('/health');
+                log(`✅ System health: ${result.status}`);
+            } catch (error) {
+                log(`❌ Health check failed: ${error.message}`);
+            }
+        }
+
+        async function viewRules() {
+            log('📋 Fetching active WAF rules...');
+            try {
+                const result = await apiCall('/api/rules');
+                log(`📋 Active rules: ${result.total_rules}`);
+                if (result.rules.length > 0) {
+                    result.rules.forEach(rule => {
+                        log(`  • ${rule.rule_id}: ${rule.description}`);
+                    });
+                } else {
+                    log('  No active rules found.');
+                }
+            } catch (error) {
+                log(`❌ Failed to fetch rules: ${error.message}`);
+            }
+        }
+
+        async function viewRuleStats() {
+            log('📊 Fetching rule statistics...');
+            try {
+                const result = await apiCall('/api/rules/stats');
+                const stats = result.rule_statistics;
+                log(`📊 Rule Stats: ${stats.active_rules} active, ${stats.total_generated} generated, ${stats.expired_rules} expired`);
+            } catch (error) {
+                log(`❌ Failed to fetch rule stats: ${error.message}`);
+            }
+        }
+
+        async function cleanupRules() {
+            log('🧹 Cleaning up expired rules...');
+            try {
+                const result = await apiCall('/api/rules/cleanup', 'POST');
+                log(`✅ Cleanup complete: ${result.expired_rules_removed} expired rules removed`);
+                updateMetrics();
+            } catch (error) {
+                log(`❌ Cleanup failed: ${error.message}`);
+            }
+        }
+
+        async function updateStatus() {
+            try {
+                const status = await apiCall('/api/debug/status');
+                
+                // Update workflow status
+                document.getElementById('traffic-status').innerHTML = 
+                    `<span class="status ${status.traffic_collector.is_collecting ? 'running' : 'stopped'}">
+                        ${status.traffic_collector.is_collecting ? 'Running' : 'Stopped'}
+                    </span>`;
+                
+                document.getElementById('ml-status').innerHTML = 
+                    `<span class="status ${status.processing.is_processing ? 'running' : 'stopped'}">
+                        ${status.processing.is_processing ? 'Running' : 'Stopped'}
+                    </span>`;
+                
+                document.getElementById('rule-gen-status').innerHTML = 
+                    `<span class="status ${status.components_status.waf_rule_generator.status === 'running' ? 'running' : 'stopped'}">
+                        ${status.components_status.waf_rule_generator.status === 'running' ? 'Running' : 'Stopped'}
+                    </span>`;
+                
+                document.getElementById('deploy-status').innerHTML = 
+                    `<span class="status ${status.components_status.nginx_manager.status === 'running' ? 'running' : 'stopped'}">
+                        ${status.components_status.nginx_manager.status === 'running' ? 'Running' : 'Stopped'}
+                    </span>`;
+                    
+            } catch (error) {
+                console.error('Failed to update status:', error);
+            }
+        }
+
+        async function updateMetrics() {
+            try {
+                const status = await apiCall('/api/debug/status');
+                const ruleStats = await apiCall('/api/rules/stats');
+                
+                document.getElementById('traffic-count').textContent = status.traffic_collector.collected_requests_count || 0;
+                document.getElementById('rules-active').textContent = ruleStats.rule_statistics.active_rules || 0;
+                
+                // Try to get metrics for threats and accuracy
+                try {
+                    const metricsResponse = await fetch(`${API_BASE}/metrics`);
+                    const metricsText = await metricsResponse.text();
+                    
+                    // Parse Prometheus metrics
+                    const accuracyMatch = metricsText.match(/waf_ml_model_accuracy\s+([\d.]+)/);
+                    if (accuracyMatch) {
+                        document.getElementById('model-accuracy').textContent = (parseFloat(accuracyMatch[1]) * 100).toFixed(1) + '%';
+                    }
+                } catch (e) {
+                    console.log('Could not fetch Prometheus metrics');
+                }
+                
+            } catch (error) {
+                console.error('Failed to update metrics:', error);
+            }
+        }
+
+        // Auto-refresh status every 5 seconds
+        setInterval(() => {
+            updateStatus();
+            updateMetrics();
+        }, 5000);
+
+        // Initial load
+        updateStatus();
+        updateMetrics();
+        log('🛡️ WAF AI Control Panel loaded successfully!');
+    </script>
+</body>
+</html>

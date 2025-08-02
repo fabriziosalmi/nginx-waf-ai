@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import json
 import re
+from loguru import logger
 
 
 @dataclass
@@ -54,13 +55,71 @@ class WAFRule:
 class WAFRuleGenerator:
     """Generates WAF rules based on threat predictions"""
     
-    def __init__(self):
+    def __init__(self, max_rules=50, default_expiry_minutes=30):
         self.active_rules = []
         self.rule_counter = 0
+        self.max_rules = max_rules  # Maximum number of active rules
+        self.default_expiry_minutes = default_expiry_minutes  # Default rule expiration time
+        self.rule_stats = {
+            'total_generated': 0,
+            'expired_rules': 0,
+            'active_rules': 0
+        }
     
+    def cleanup_expired_rules(self) -> int:
+        """Remove expired rules and return count of removed rules"""
+        now = datetime.now()
+        initial_count = len(self.active_rules)
+        
+        self.active_rules = [
+            rule for rule in self.active_rules 
+            if rule.expires_at is None or rule.expires_at > now
+        ]
+        
+        expired_count = initial_count - len(self.active_rules)
+        self.rule_stats['expired_rules'] += expired_count
+        self.rule_stats['active_rules'] = len(self.active_rules)
+        
+        if expired_count > 0:
+            logger.info(f"Cleaned up {expired_count} expired WAF rules")
+        
+        return expired_count
+    
+    def enforce_rule_limits(self) -> int:
+        """Enforce maximum rule count by removing oldest rules"""
+        if len(self.active_rules) <= self.max_rules:
+            return 0
+        
+        # Sort by creation date (oldest first)
+        self.active_rules.sort(key=lambda r: r.created_at)
+        
+        # Remove oldest rules to stay within limit
+        rules_to_remove = len(self.active_rules) - self.max_rules
+        removed_rules = self.active_rules[:rules_to_remove]
+        self.active_rules = self.active_rules[rules_to_remove:]
+        
+        logger.info(f"Removed {rules_to_remove} oldest rules to enforce limit of {self.max_rules}")
+        return rules_to_remove
+    
+    def should_generate_rule(self, rule_type: str, condition: str) -> bool:
+        """Check if a similar rule already exists to avoid duplicates"""
+        for existing_rule in self.active_rules:
+            if (existing_rule.rule_type == rule_type and 
+                existing_rule.condition == condition):
+                # Update expiration time for existing rule instead of creating new one
+                existing_rule.expires_at = datetime.fromtimestamp(
+                    datetime.now().timestamp() + (self.default_expiry_minutes * 60)
+                )
+                logger.debug(f"Extended expiration for existing rule: {existing_rule.rule_id}")
+                return False
+        return True
+
     def generate_rules_from_threats(self, threats: List[Dict], 
                                   threat_patterns: Dict[str, int]) -> List[WAFRule]:
         """Generate WAF rules based on detected threats"""
+        # First, cleanup expired rules
+        self.cleanup_expired_rules()
+        
         new_rules = []
         
         # Group threats by type for pattern analysis
@@ -69,22 +128,38 @@ class WAFRuleGenerator:
         for threat_type, threat_list in threat_groups.items():
             if len(threat_list) >= 3:  # Generate rule if we see 3+ similar threats
                 rule = self._generate_rule_for_threat_type(threat_type, threat_list)
-                if rule:
+                if rule and self.should_generate_rule(rule.rule_type, rule.condition):
                     new_rules.append(rule)
         
         # Generate IP-based rules for repeat offenders
         ip_threats = self._analyze_ip_patterns(threats)
         for ip, count in ip_threats.items():
             if count >= 5:  # Block IPs with 5+ threats
-                rule = self._generate_ip_block_rule(ip, count)
-                new_rules.append(rule)
+                if self.should_generate_rule("block_ip", ip):
+                    rule = self._generate_ip_block_rule(ip, count)
+                    new_rules.append(rule)
         
         # Generate rate limiting rules for high-volume attacks
         if sum(threat_patterns.values()) > 20:  # High threat volume
-            rule = self._generate_rate_limit_rule(threat_patterns)
-            new_rules.append(rule)
+            condition = "high_threat_volume"
+            if self.should_generate_rule("rate_limit", condition):
+                rule = self._generate_rate_limit_rule(threat_patterns)
+                new_rules.append(rule)
         
+        # Add new rules to active list
         self.active_rules.extend(new_rules)
+        self.rule_stats['total_generated'] += len(new_rules)
+        
+        # Enforce rule limits
+        self.enforce_rule_limits()
+        
+        # Update stats
+        self.rule_stats['active_rules'] = len(self.active_rules)
+        
+        if new_rules:
+            logger.info(f"Generated {len(new_rules)} new WAF rules. "
+                       f"Active rules: {len(self.active_rules)}/{self.max_rules}")
+        
         return new_rules
     
     def _group_threats_by_type(self, threats: List[Dict]) -> Dict[str, List[Dict]]:
@@ -211,14 +286,53 @@ class WAFRuleGenerator:
         return None
     
     def get_active_rules(self) -> List[WAFRule]:
-        """Get currently active rules"""
-        now = datetime.now()
-        # Filter out expired rules
-        self.active_rules = [
-            rule for rule in self.active_rules 
-            if rule.expires_at is None or rule.expires_at > now
-        ]
+        """Get currently active rules after cleanup"""
+        self.cleanup_expired_rules()
         return self.active_rules
+    
+    def get_rule_stats(self) -> Dict[str, int]:
+        """Get statistics about rule generation and management"""
+        return {
+            **self.rule_stats,
+            'current_active': len(self.active_rules),
+            'max_rules_limit': self.max_rules,
+            'default_expiry_minutes': self.default_expiry_minutes
+        }
+    
+    def configure_limits(self, max_rules: int = None, default_expiry_minutes: int = None):
+        """Configure rule limits and expiry times"""
+        if max_rules is not None:
+            self.max_rules = max_rules
+            logger.info(f"Updated max rules limit to {max_rules}")
+            # Enforce new limit immediately
+            self.enforce_rule_limits()
+        
+        if default_expiry_minutes is not None:
+            self.default_expiry_minutes = default_expiry_minutes
+            logger.info(f"Updated default expiry time to {default_expiry_minutes} minutes")
+    
+    def manually_expire_rules(self, rule_ids: List[str] = None, rule_types: List[str] = None) -> int:
+        """Manually expire specific rules by ID or type"""
+        initial_count = len(self.active_rules)
+        
+        if rule_ids:
+            self.active_rules = [
+                rule for rule in self.active_rules 
+                if rule.rule_id not in rule_ids
+            ]
+            
+        if rule_types:
+            self.active_rules = [
+                rule for rule in self.active_rules 
+                if rule.rule_type not in rule_types
+            ]
+        
+        removed_count = initial_count - len(self.active_rules)
+        if removed_count > 0:
+            logger.info(f"Manually removed {removed_count} rules")
+            self.rule_stats['active_rules'] = len(self.active_rules)
+        
+        return removed_count
     
     def generate_nginx_config(self, rules: List[WAFRule]) -> str:
         """Generate complete nginx configuration for WAF rules"""

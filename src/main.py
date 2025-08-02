@@ -340,8 +340,14 @@ async def startup_components():
             # Initialize WAF rule generator with error handling
             try:
                 logger.info("Initializing WAF rule generator...")
-                waf_rule_generator = WAFRuleGenerator()
+                # Use configuration values for limits
+                waf_rule_generator = WAFRuleGenerator(
+                    max_rules=config.waf_max_rules,
+                    default_expiry_minutes=config.waf_default_expiry_minutes
+                )
                 component_manager.set_component('waf_rule_generator', waf_rule_generator)
+                logger.info(f"WAF rule generator initialized with max_rules={config.waf_max_rules}, "
+                           f"expiry={config.waf_default_expiry_minutes}min")
                 
             except Exception as e:
                 logger.error(f"Failed to initialize WAF rule generator: {e}")
@@ -1295,8 +1301,18 @@ async def process_threats_continuously():
                     
                     # Detect threats
                     logger.info(f"THREAT PROCESSOR: Processing {len(request_dicts)} requests for threat detection...")
+                    process_start_time = asyncio.get_event_loop().time()
                     threats = await real_time_processor.process_requests(request_dicts)
+                    process_time = asyncio.get_event_loop().time() - process_start_time
+                    
                     logger.info(f"THREAT PROCESSOR: Detected {len(threats)} threats")
+                    
+                    # Update metrics
+                    for threat in threats:
+                        threat_type = threat.to_dict().get('threat_type', 'unknown')
+                        metrics.threats_detected.labels(threat_type=threat_type).inc()
+                    
+                    metrics.processing_time.labels(component='threat_detection').observe(process_time)
                     
                     if threats:
                         # Generate WAF rules
@@ -1510,6 +1526,117 @@ async def get_nginx_config():
         raise HTTPException(status_code=500, detail=f"Failed to generate nginx config: {str(e)}")
 
 
+@app.get("/api/rules/stats")
+async def get_rule_stats():
+    """Get WAF rule generation and management statistics"""
+    waf_rule_generator = component_manager.get_component('waf_rule_generator')
+    if waf_rule_generator is None:
+        raise HTTPException(status_code=500, detail="WAF rule generator not initialized")
+    
+    try:
+        stats = waf_rule_generator.get_rule_stats()
+        active_rules = waf_rule_generator.get_active_rules()
+        
+        # Add detailed breakdown
+        rule_types = {}
+        for rule in active_rules:
+            rule_types[rule.rule_type] = rule_types.get(rule.rule_type, 0) + 1
+        
+        return {
+            "rule_statistics": stats,
+            "rule_types_breakdown": rule_types,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get rule stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get rule stats: {str(e)}")
+
+
+@app.post("/api/rules/cleanup")
+async def cleanup_rules():
+    """Manually trigger rule cleanup (remove expired rules)"""
+    waf_rule_generator = component_manager.get_component('waf_rule_generator')
+    if waf_rule_generator is None:
+        raise HTTPException(status_code=500, detail="WAF rule generator not initialized")
+    
+    try:
+        expired_count = waf_rule_generator.cleanup_expired_rules()
+        enforced_count = waf_rule_generator.enforce_rule_limits()
+        
+        return {
+            "message": "Rule cleanup completed",
+            "expired_rules_removed": expired_count,
+            "oldest_rules_removed": enforced_count,
+            "active_rules_remaining": len(waf_rule_generator.active_rules),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to cleanup rules: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to cleanup rules: {str(e)}")
+
+
+@app.post("/api/rules/configure")
+async def configure_rule_limits(
+    max_rules: Optional[int] = None,
+    default_expiry_minutes: Optional[int] = None
+):
+    """Configure rule limits and expiry times"""
+    waf_rule_generator = component_manager.get_component('waf_rule_generator')
+    if waf_rule_generator is None:
+        raise HTTPException(status_code=500, detail="WAF rule generator not initialized")
+    
+    # Validate parameters
+    if max_rules is not None and (max_rules < 1 or max_rules > 1000):
+        raise HTTPException(status_code=400, detail="max_rules must be between 1 and 1000")
+    
+    if default_expiry_minutes is not None and (default_expiry_minutes < 1 or default_expiry_minutes > 1440):
+        raise HTTPException(status_code=400, detail="default_expiry_minutes must be between 1 and 1440 (24 hours)")
+    
+    try:
+        waf_rule_generator.configure_limits(max_rules, default_expiry_minutes)
+        
+        return {
+            "message": "Rule configuration updated",
+            "max_rules": waf_rule_generator.max_rules,
+            "default_expiry_minutes": waf_rule_generator.default_expiry_minutes,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to configure rules: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to configure rules: {str(e)}")
+
+
+@app.delete("/api/rules/expire")
+async def expire_rules(
+    rule_ids: Optional[List[str]] = None,
+    rule_types: Optional[List[str]] = None
+):
+    """Manually expire specific rules by ID or type"""
+    if not rule_ids and not rule_types:
+        raise HTTPException(status_code=400, detail="Must specify either rule_ids or rule_types")
+    
+    waf_rule_generator = component_manager.get_component('waf_rule_generator')
+    if waf_rule_generator is None:
+        raise HTTPException(status_code=500, detail="WAF rule generator not initialized")
+    
+    try:
+        removed_count = waf_rule_generator.manually_expire_rules(rule_ids, rule_types)
+        
+        return {
+            "message": "Rules expired successfully",
+            "removed_count": removed_count,
+            "active_rules_remaining": len(waf_rule_generator.active_rules),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to expire rules: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to expire rules: {str(e)}")
+
+
 @app.post("/api/processing/stop")
 async def stop_processing():
     """Stop real-time processing - requires operator role"""
@@ -1578,53 +1705,7 @@ async def get_system_stats():
         raise HTTPException(status_code=500, detail=f"Failed to get system stats: {str(e)}")
 
 
-async def process_traffic_continuously():
-    """Continuously process traffic from the traffic collector"""
-    global traffic_collector, real_time_processor, is_processing
-    
-    logger.info("Starting continuous traffic processing...")
-    
-    while is_processing:
-        try:
-            logger.debug(f"Processing cycle - is_processing: {is_processing}")
-            
-            if traffic_collector and hasattr(traffic_collector, 'collected_requests'):
-                logger.debug(f"Traffic collector has {len(traffic_collector.collected_requests)} collected requests")
-                
-                # Get recent requests to process
-                recent_requests = traffic_collector.get_recent_requests(100)
-                
-                if recent_requests and real_time_processor:
-                    logger.debug(f"Processing {len(recent_requests)} recent requests")
-                    
-                    # Process requests for threats
-                    for request in recent_requests:
-                        try:
-                            features = traffic_collector.extract_features(request)
-                            prediction = real_time_processor.process_request(features)
-                            
-                            if prediction and prediction.threat_score < -0.1:
-                                logger.info(f"Threat detected: {prediction.threat_type} (score: {prediction.threat_score})")
-                                metrics.threats_detected.labels(threat_type=prediction.threat_type).inc()
-                                
-                        except Exception as e:
-                            logger.error(f"Error processing request: {e}")
-                            continue
-                
-                else:
-                    logger.debug("No recent requests or real_time_processor not available")
-            
-            else:
-                logger.debug("Traffic collector not available or no collected_requests attribute")
-            
-            # Sleep between processing cycles
-            await asyncio.sleep(1)
-            
-        except Exception as e:
-            logger.error(f"Error in traffic processing loop: {e}")
-            await asyncio.sleep(5)  # Wait longer on error
-    
-    logger.info("Traffic processing stopped")
+
 
 
 # ============= TLS/HTTPS CONFIGURATION =============

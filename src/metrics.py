@@ -34,6 +34,15 @@ ml_model_accuracy = Gauge('waf_ml_model_accuracy', 'ML model accuracy score')
 rules_deployed = Counter('waf_rules_deployed_total', 'Total rules deployed', ['node_id'])
 configuration_reloads = Counter('waf_configuration_reloads_total', 'Configuration reloads', ['node_id', 'status'])
 
+# WAF activity metrics
+waf_rules_generated = Counter('waf_rules_generated_total', 'Total WAF rules generated', ['rule_type'])
+waf_deployments = Counter('waf_deployments_total', 'WAF rule deployments', ['status'])
+waf_node_responses = Counter('waf_node_responses_total', 'Node response counts', ['node_id', 'status'])
+
+# Performance and processing metrics
+ml_processing_duration = Histogram('waf_ml_processing_duration_seconds', 'ML processing duration')
+threat_analysis_duration = Histogram('waf_threat_analysis_duration_seconds', 'Threat analysis duration')
+
 # Initialize metrics with zero values
 nodes_registered.set(0)
 rules_active.set(0)

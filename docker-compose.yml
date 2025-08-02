@@ -13,7 +13,19 @@ services:
       timeout: 5s
       retries: 5
 
-  # Main WAF AI API Service
+  # Control Panel for WAF Management
+  control-panel:
+    build:
+      context: ./docker/control-panel
+      dockerfile: Dockerfile
+    container_name: waf-control-panel
+    ports:
+      - "8090:80"
+    depends_on:
+      - waf-api
+    restart: unless-stopped
+
+  # WAF API Service
   waf-api:
     build:
       context: .

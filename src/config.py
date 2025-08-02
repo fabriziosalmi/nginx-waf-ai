@@ -66,6 +66,14 @@ class SystemConfig:
     max_active_rules: int = 100
     rule_optimization_enabled: bool = True
     
+    # WAF rule management (new)
+    waf_max_rules: int = 50  # Maximum number of active rules
+    waf_default_expiry_minutes: int = 30  # Default rule expiration time
+    waf_cleanup_interval_minutes: int = 5  # How often to cleanup expired rules
+    waf_duplicate_rule_threshold_seconds: int = 300  # Prevent duplicate rules within 5 minutes
+    waf_enable_automatic_cleanup: bool = True  # Enable automatic cleanup of expired rules
+    waf_enable_rule_limits: bool = True  # Enforce maximum rule limits
+    
     # Nginx management
     default_nginx_config_path: str = "/etc/nginx/conf.d"
     default_nginx_reload_command: str = "sudo systemctl reload nginx"
