@@ -29,7 +29,7 @@
       },
       "id": 1,
       "panels": [],
-      "title": "WAF System Overview",
+      "title": "🛡️ WAF System Overview",
       "type": "row"
     },
     {
@@ -48,32 +48,36 @@
                 "value": null
               },
               {
-                "color": "green",
+                "color": "yellow",
                 "value": 1
+              },
+              {
+                "color": "green",
+                "value": 2
               }
             ]
-          },
-          "unit": "short"
-        }
+          }
+        },
+        "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 8,
         "w": 4,
         "x": 0,
         "y": 1
       },
       "id": 2,
       "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
+          "values": false,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": ""
         },
         "text": {},
         "textMode": "auto"
@@ -107,35 +111,36 @@
               },
               {
                 "color": "yellow",
-                "value": 1
+                "value": 10
               },
               {
                 "color": "red",
-                "value": 10
+                "value": 50
               }
             ]
           },
           "unit": "short"
-        }
+        },
+        "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 8,
         "w": 4,
         "x": 4,
         "y": 1
       },
       "id": 3,
       "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
+          "values": false,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": ""
         },
         "text": {},
         "textMode": "auto"
@@ -164,40 +169,41 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "blue",
                 "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
               },
               {
                 "color": "green",
                 "value": 10
+              },
+              {
+                "color": "yellow",
+                "value": 100
               }
             ]
           },
           "unit": "short"
-        }
+        },
+        "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 8,
         "w": 4,
         "x": 8,
         "y": 1
       },
       "id": 4,
       "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
+          "values": false,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": ""
         },
         "text": {},
         "textMode": "auto"
@@ -227,12 +233,12 @@
                 "0": {
                   "color": "red",
                   "index": 0,
-                  "text": "ML Engine Down"
+                  "text": "DOWN"
                 },
                 "1": {
                   "color": "green",
                   "index": 1,
-                  "text": "ML Engine Running"
+                  "text": "UP"
                 }
               },
               "type": "value"
@@ -250,28 +256,28 @@
                 "value": 1
               }
             ]
-          },
-          "unit": "short"
-        }
+          }
+        },
+        "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 8,
         "w": 4,
         "x": 12,
         "y": 1
       },
       "id": 5,
       "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
+          "values": false,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": ""
         },
         "text": {},
         "textMode": "auto"
@@ -300,40 +306,41 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "green",
                 "value": null
               },
               {
                 "color": "yellow",
-                "value": 5
+                "value": 100
               },
               {
-                "color": "green",
-                "value": 8
+                "color": "red",
+                "value": 500
               }
             ]
           },
-          "unit": "short"
-        }
+          "unit": "ms"
+        },
+        "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 8,
         "w": 4,
         "x": 16,
         "y": 1
       },
       "id": 6,
       "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
+          "values": false,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": ""
         },
         "text": {},
         "textMode": "auto"
@@ -341,13 +348,13 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count(up == 1)",
+          "expr": "avg(waf_processing_time_ms)",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
         }
       ],
-      "title": "Services Up",
+      "title": "Avg Processing Time",
       "type": "stat"
     },
     {
@@ -362,40 +369,40 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
                 "color": "yellow",
-                "value": 100
+                "value": 1
               },
               {
-                "color": "red",
-                "value": 1000
+                "color": "green",
+                "value": 2
               }
             ]
-          },
-          "unit": "ms"
-        }
+          }
+        },
+        "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 8,
         "w": 4,
         "x": 20,
         "y": 1
       },
       "id": 7,
       "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
         "reduceOptions": {
+          "values": false,
           "calcs": [
             "lastNotNull"
           ],
-          "fields": "",
-          "values": false
+          "fields": ""
         },
         "text": {},
         "textMode": "auto"
@@ -403,13 +410,13 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "(rate(waf_processing_time_seconds_sum[5m]) / rate(waf_processing_time_seconds_count[5m])) * 1000",
+          "expr": "count(up{job=~\"waf-api|nginx-.*\"})",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
         }
       ],
-      "title": "Avg Processing Time",
+      "title": "Services Up",
       "type": "stat"
     },
     {
@@ -419,11 +426,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 5
+        "y": 9
       },
       "id": 8,
       "panels": [],
-      "title": "Traffic & Security Metrics",
+      "title": "📊 Performance & Processing Metrics",
       "type": "row"
     },
     {
@@ -475,42 +482,48 @@
               }
             ]
           },
-          "unit": "reqps"
-        }
+          "unit": "ms"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 6
+        "y": 10
       },
       "id": 9,
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom"
         },
         "tooltip": {
           "mode": "single"
         }
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "rate(waf_traffic_volume_total[1m])",
+          "expr": "histogram_quantile(0.50, rate(waf_processing_time_seconds_bucket[5m])) * 1000",
           "interval": "",
-          "legendFormat": "Traffic Volume Rate",
+          "legendFormat": "50th percentile",
           "refId": "A"
         },
         {
-          "expr": "rate(waf_recent_requests[1m]) * 60",
+          "expr": "histogram_quantile(0.95, rate(waf_processing_time_seconds_bucket[5m])) * 1000",
           "interval": "",
-          "legendFormat": "Recent Requests/min",
+          "legendFormat": "95th percentile",
           "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(waf_processing_time_seconds_bucket[5m])) * 1000",
+          "interval": "",
+          "legendFormat": "99th percentile",
+          "refId": "C"
         }
       ],
-      "title": "Request Rate by Node",
+      "title": "Processing Time Percentiles",
       "type": "timeseries"
     },
     {
@@ -562,42 +575,48 @@
               }
             ]
           },
-          "unit": "short"
-        }
+          "unit": "reqps"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 6
+        "y": 10
       },
       "id": 10,
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom"
         },
         "tooltip": {
           "mode": "single"
         }
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "waf_threats_detected_total",
+          "expr": "sum(rate(waf_requests_total[1m]))",
           "interval": "",
-          "legendFormat": "Threats Detected",
+          "legendFormat": "Total Requests/sec",
           "refId": "A"
         },
         {
-          "expr": "waf_rules_active",
+          "expr": "sum(rate(waf_requests_total{status=~\"4..|5..\"}[1m]))",
           "interval": "",
-          "legendFormat": "Active Rules",
+          "legendFormat": "Error Requests/sec",
           "refId": "B"
+        },
+        {
+          "expr": "sum(rate(waf_blocked_requests_total[1m]))",
+          "interval": "",
+          "legendFormat": "Blocked Requests/sec",
+          "refId": "C"
         }
       ],
-      "title": "Threat Detection Rate",
+      "title": "Request Processing Rate",
       "type": "timeseries"
     },
     {
@@ -607,11 +626,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 14
+        "y": 18
       },
       "id": 11,
       "panels": [],
-      "title": "Nginx Access Logs & Traffic Analysis",
+      "title": "🌐 Nginx Access Logs & Traffic Analysis",
       "type": "row"
     },
     {
@@ -636,13 +655,14 @@
             ]
           },
           "unit": "reqps"
-        }
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 15
+        "y": 19
       },
       "id": 12,
       "options": {
@@ -663,7 +683,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} | __error__=\"\" [5m]))",
+          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} [5m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -698,13 +718,14 @@
             ]
           },
           "unit": "reqps"
-        }
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 15
+        "y": 19
       },
       "id": 13,
       "options": {
@@ -725,7 +746,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} | __error__=\"\" | regexp `(?P<ip>\\S+) \\S+ \\S+ \\[(?P<timestamp>[^\\]]+)\\] \"(?P<method>\\S+) (?P<path>\\S+) (?P<protocol>\\S+)\" (?P<status>\\d+)` | status =~ \"4..|5..\" [5m]))",
+          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"[45][0-9][0-9]\\\"\" [5m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -760,13 +781,14 @@
             ]
           },
           "unit": "short"
-        }
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 15
+        "y": 19
       },
       "id": 14,
       "options": {
@@ -787,7 +809,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count(count by (remote_addr) (count_over_time({job=\"nginx-logs\", log_type=\"access\"} | __error__=\"\" [5m])))",
+          "expr": "count(count by (remote_addr) ({job=\"nginx-logs\", log_type=\"access\"} [5m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -822,13 +844,14 @@
             ]
           },
           "unit": "reqps"
-        }
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 15
+        "y": 19
       },
       "id": 15,
       "options": {
@@ -849,7 +872,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} | __error__=\"\" | regexp `(?P<ip>\\S+) \\S+ \\S+ \\[(?P<timestamp>[^\\]]+)\\] \"(?P<method>\\S+) (?P<path>\\S+) (?P<protocol>\\S+)\" (?P<status>\\d+)` | status = \"403\" [5m]))",
+          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"403\\\"\" [5m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -857,6 +880,87 @@
       ],
       "title": "Blocked Requests/sec",
       "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 23
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (node_id) (rate(waf_requests_total[1m]))",
+          "interval": "",
+          "legendFormat": "{{node_id}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Request Rate by Node",
+      "type": "timeseries"
     },
     {
       "datasource": "Loki",
@@ -907,33 +1011,51 @@
               }
             ]
           },
-          "unit": "reqps"
-        }
+          "unit": "short"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
-        "y": 19
+        "x": 12,
+        "y": 23
       },
-      "id": 16,
+      "id": 17,
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom"
         },
         "tooltip": {
           "mode": "single"
         }
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum by (status) (rate({job=\"nginx-logs\", log_type=\"access\"} | __error__=\"\" | regexp `(?P<ip>\\S+) \\S+ \\S+ \\[(?P<timestamp>[^\\]]+)\\] \"(?P<method>\\S+) (?P<path>\\S+) (?P<protocol>\\S+)\" (?P<status>\\d+)` [5m]))",
+          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"2[0-9][0-9]\\\"\" [5m])) by (status)",
           "interval": "",
-          "legendFormat": "{{status}}",
+          "legendFormat": "2xx Success",
           "refId": "A"
+        },
+        {
+          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"3[0-9][0-9]\\\"\" [5m])) by (status)",
+          "interval": "",
+          "legendFormat": "3xx Redirect",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"4[0-9][0-9]\\\"\" [5m])) by (status)",
+          "interval": "",
+          "legendFormat": "4xx Client Error",
+          "refId": "C"
+        },
+        {
+          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"5[0-9][0-9]\\\"\" [5m])) by (status)",
+          "interval": "",
+          "legendFormat": "5xx Server Error",
+          "refId": "D"
         }
       ],
       "title": "Response Codes Distribution",
@@ -988,16 +1110,17 @@
               }
             ]
           },
-          "unit": "reqps"
-        }
+          "unit": "short"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 19
+        "w": 24,
+        "x": 0,
+        "y": 31
       },
-      "id": 17,
+      "id": 18,
       "options": {
         "legend": {
           "calcs": [],
@@ -1008,16 +1131,15 @@
           "mode": "single"
         }
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum by (node_id) (rate({job=\"nginx-logs\", log_type=\"access\"} | __error__=\"\" [5m]))",
+          "expr": "topk(10, sum by (request_uri) (count_over_time({job=\"nginx-logs\", log_type=\"access\"} [10m])))",
           "interval": "",
-          "legendFormat": "{{node_id}}",
+          "legendFormat": "{{request_uri}}",
           "refId": "A"
         }
       ],
-      "title": "Request Rate by Node (Logs)",
+      "title": "Top Request Paths",
       "type": "timeseries"
     },
     {
@@ -1027,11 +1149,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 39
       },
-      "id": 18,
+      "id": 19,
       "panels": [],
-      "title": "Security & Attack Detection",
+      "title": "🔒 Security & Attack Detection",
       "type": "row"
     },
     {
@@ -1060,15 +1182,16 @@
             ]
           },
           "unit": "reqps"
-        }
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 28
+        "y": 40
       },
-      "id": 19,
+      "id": 20,
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -1087,7 +1210,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(union|select|drop|insert|delete|script|alert|onload|onerror)\"[5m]))",
+          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(union|select|drop|insert|delete)\" [5m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1122,15 +1245,16 @@
             ]
           },
           "unit": "reqps"
-        }
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 28
+        "y": 40
       },
-      "id": 20,
+      "id": 21,
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -1149,7 +1273,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(\\\\.\\\\./|\\\\.env|/etc/|/proc/|/var/)\"[5m]))",
+          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(\\\\.\\\\./|\\\\.\\\\.\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\/etc\\\\/passwd|\\\\/windows\\\\/win\\\\.ini)\" [5m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1184,75 +1308,14 @@
             ]
           },
           "unit": "reqps"
-        }
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 28
-      },
-      "id": 21,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "auto"
-      },
-      "pluginVersion": "8.0.0",
-      "targets": [
-        {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(sqlmap|havij|nessus|nmap|masscan|zap|burp)\"[5m]))",
-          "interval": "",
-          "legendFormat": "",
-          "refId": "A"
-        }
-      ],
-      "title": "Scanner Activity",
-      "type": "stat"
-    },
-    {
-      "datasource": "Loki",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          },
-          "unit": "reqps"
-        }
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 18,
-        "y": 28
+        "y": 40
       },
       "id": 22,
       "options": {
@@ -1273,131 +1336,17 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\", status=\"403\"}[5m]))",
+          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(script|alert|onload|onerror)\" [5m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
         }
       ],
-      "title": "Blocked Requests",
+      "title": "XSS Attempts",
       "type": "stat"
     },
     {
       "datasource": "Loki",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "reqps"
-        }
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 32
-      },
-      "id": 23,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "pluginVersion": "8.0.0",
-      "targets": [
-        {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(union|select|drop|insert|delete)\"[5m]))",
-          "interval": "",
-          "legendFormat": "SQL Injection",
-          "refId": "A"
-        },
-        {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(script|alert|onload|onerror)\"[5m]))",
-          "interval": "",
-          "legendFormat": "XSS Attempts",
-          "refId": "B"
-        },
-        {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(\\\\.\\\\./|\\\\.env|/etc/)\"[5m]))",
-          "interval": "",
-          "legendFormat": "Path Traversal",
-          "refId": "C"
-        },
-        {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(sqlmap|havij|nessus)\"[5m]))",
-          "interval": "",
-          "legendFormat": "Scanner Activity",
-          "refId": "D"
-        }
-      ],
-      "title": "Attack Pattern Detection Timeline",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "datasource": null,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 40
-      },
-      "id": 24,
-      "panels": [],
-      "title": "WAF Rules & Deployments",
-      "type": "row"
-    },
-    {
-      "datasource": "Prometheus",
-      "description": "Total number of WAF rules currently active",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1408,7 +1357,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "green",
                 "value": null
               },
               {
@@ -1416,21 +1365,22 @@
                 "value": 1
               },
               {
-                "color": "green",
+                "color": "red",
                 "value": 5
               }
             ]
           },
           "unit": "short"
-        }
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 4,
         "w": 6,
-        "x": 0,
-        "y": 41
+        "x": 18,
+        "y": 40
       },
-      "id": 25,
+      "id": 23,
       "options": {
         "colorMode": "background",
         "graphMode": "area",
@@ -1449,81 +1399,17 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "waf_rules_active",
+          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(nikto|nmap|sqlmap|dirb|gobuster|dirbuster|wfuzz)\" [5m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
         }
       ],
-      "title": "Total Active WAF Rules",
+      "title": "Scanner Activity",
       "type": "stat"
     },
     {
       "datasource": "Prometheus",
-      "description": "Recent threats detected in the last 24 hours",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 10
-              },
-              {
-                "color": "red",
-                "value": 50
-              }
-            ]
-          },
-          "unit": "short"
-        }
-      },
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 41
-      },
-      "id": 26,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "text": {},
-        "textMode": "value_and_name"
-      },
-      "pluginVersion": "8.0.0",
-      "targets": [
-        {
-          "expr": "waf_threats_detected_total",
-          "interval": "",
-          "legendFormat": "Total Threats",
-          "refId": "A"
-        }
-      ],
-      "title": "Threats Detected (24h)",
-      "type": "stat"
-    },
-    {
-      "datasource": "Prometheus",
-      "description": "Recent WAF system activity and metrics",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1547,7 +1433,7 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "auto",
+            "showPoints": "never",
             "spanNulls": false,
             "stacking": {
               "group": "A",
@@ -1570,49 +1456,128 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "short"
-        }
+          }
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 41
+        "x": 0,
+        "y": 44
       },
-      "id": 27,
+      "id": 24,
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom"
         },
         "tooltip": {
           "mode": "single"
         }
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "waf_nodes_registered",
+          "expr": "sum by (node_id) (rate(waf_sql_injection_attempts_total[5m])) * 60",
           "interval": "",
-          "legendFormat": "Registered Nodes",
+          "legendFormat": "SQL Injection - {{node_id}}",
           "refId": "A"
         },
         {
-          "expr": "waf_rules_active",
+          "expr": "sum by (node_id) (rate(waf_xss_attempts_total[5m])) * 60",
           "interval": "",
-          "legendFormat": "Active Rules",
+          "legendFormat": "XSS - {{node_id}}",
           "refId": "B"
         },
         {
-          "expr": "rate(waf_traffic_volume_total[5m]) * 300",
+          "expr": "sum by (node_id) (rate(waf_path_traversal_attempts_total[5m])) * 60",
           "interval": "",
-          "legendFormat": "Traffic Rate (5m)",
+          "legendFormat": "Path Traversal - {{node_id}}",
           "refId": "C"
         }
       ],
-      "title": "WAF Activity Metrics",
+      "title": "Attack Attempts by Type",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 44
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (node_id, reason) (rate(waf_blocked_requests_total[5m])) * 60",
+          "interval": "",
+          "legendFormat": "{{node_id}} - {{reason}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Blocked Requests by Reason",
       "type": "timeseries"
     },
     {
@@ -1622,11 +1587,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 45
+        "y": 52
       },
-      "id": 28,
+      "id": 26,
       "panels": [],
-      "title": "Performance & Processing Metrics",
+      "title": "⚙️ WAF Activity & Rule Management",
       "type": "row"
     },
     {
@@ -1677,148 +1642,42 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "ms"
-        }
+          }
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
-        "y": 46
+        "y": 53
       },
-      "id": 29,
+      "id": 27,
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom"
         },
         "tooltip": {
           "mode": "single"
         }
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, rate(waf_processing_time_seconds_bucket[5m])) * 1000",
+          "expr": "waf_rules_active",
           "interval": "",
-          "legendFormat": "p50",
+          "legendFormat": "Active Rules",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(waf_processing_time_seconds_bucket[5m])) * 1000",
+          "expr": "sum(rate(waf_rules_deployed_total[5m])) * 60",
           "interval": "",
-          "legendFormat": "p95",
+          "legendFormat": "Rules Deployed/min",
           "refId": "B"
-        },
-        {
-          "expr": "histogram_quantile(0.99, rate(waf_processing_time_seconds_bucket[5m])) * 1000",
-          "interval": "",
-          "legendFormat": "p99",
-          "refId": "C"
-        },
-        {
-          "expr": "rate(waf_request_duration_seconds_sum[5m]) / rate(waf_request_duration_seconds_count[5m]) * 1000",
-          "interval": "",
-          "legendFormat": "avg",
-          "refId": "D"
         }
       ],
-      "title": "Processing Time Percentiles",
-      "type": "timeseries"
-    },
-    {
-      "datasource": "Prometheus",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "vis": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "ms"
-        }
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 46
-      },
-      "id": 30,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "table",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "single"
-        }
-      },
-      "pluginVersion": "8.0.0",
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, rate(waf_rule_generation_duration_seconds_bucket[5m])) * 1000",
-          "interval": "",
-          "legendFormat": "p50 Rule Gen",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.95, rate(waf_rule_generation_duration_seconds_bucket[5m])) * 1000",
-          "interval": "",
-          "legendFormat": "p95 Rule Gen",
-          "refId": "B"
-        },
-        {
-          "expr": "rate(waf_rule_generation_duration_seconds_sum[5m]) / rate(waf_rule_generation_duration_seconds_count[5m]) * 1000",
-          "interval": "",
-          "legendFormat": "avg Rule Gen",
-          "refId": "C"
-        }
-      ],
-      "title": "Rule Generation Performance",
+      "title": "WAF Rule Activity",
       "type": "timeseries"
     },
     {
@@ -1870,76 +1729,351 @@
               }
             ]
           },
-          "unit": "short"
-        }
+          "unit": "ms"
+        },
+        "overrides": []
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 46
+        "w": 8,
+        "x": 8,
+        "y": 53
       },
-      "id": 30,
+      "id": 28,
       "options": {
         "legend": {
           "calcs": [],
-          "displayMode": "table",
+          "displayMode": "list",
           "placement": "bottom"
         },
         "tooltip": {
           "mode": "single"
         }
       },
-      "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "up",
+          "expr": "histogram_quantile(0.95, rate(waf_rule_generation_duration_seconds_bucket[5m])) * 1000",
           "interval": "",
-          "legendFormat": "{{job}} - {{instance}}",
+          "legendFormat": "95th percentile",
           "refId": "A"
+        },
+        {
+          "expr": "(rate(waf_rule_generation_duration_seconds_sum[5m]) / rate(waf_rule_generation_duration_seconds_count[5m])) * 1000",
+          "interval": "",
+          "legendFormat": "Average",
+          "refId": "B"
+        }
+      ],
+      "title": "Rule Generation Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "max": 1,
+          "min": 0,
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 53
+      },
+      "id": 29,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "waf_ml_model_accuracy",
+          "interval": "",
+          "legendFormat": "Model Accuracy",
+          "refId": "A"
+        }
+      ],
+      "title": "ML Model Performance",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "datasource": null,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 61
+      },
+      "id": 30,
+      "panels": [],
+      "title": "💾 System Health & Infrastructure",
+      "type": "row"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 62
+      },
+      "id": 31,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "up{job=\"waf-api\"}",
+          "interval": "",
+          "legendFormat": "WAF API",
+          "refId": "A"
+        },
+        {
+          "expr": "up{job=\"nginx-node-1\"}",
+          "interval": "",
+          "legendFormat": "Nginx Node 1",
+          "refId": "B"
+        },
+        {
+          "expr": "up{job=\"nginx-node-2\"}",
+          "interval": "",
+          "legendFormat": "Nginx Node 2",
+          "refId": "C"
         }
       ],
       "title": "Service Health Status",
       "type": "timeseries"
     },
     {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 62
+      },
+      "id": 32,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (node_id, status) (rate(waf_configuration_reloads_total[5m])) * 60",
+          "interval": "",
+          "legendFormat": "{{node_id}} - {{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Configuration Reload Events",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "datasource": null,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 54
+        "y": 70
       },
-      "id": 31,
+      "id": 33,
       "panels": [],
-      "title": "Log Streams & Events",
+      "title": "📋 Log Streams & Security Events",
       "type": "row"
     },
     {
       "datasource": "Loki",
       "description": "Recent blocked requests (403 status code)",
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 12,
         "x": 0,
-        "y": 55
+        "y": 71
       },
-      "id": 32,
+      "id": 34,
       "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
         "dedupStrategy": "none",
-        "sortOrder": "Descending"
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": false,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
       },
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "{job=\"nginx-logs\", log_type=\"access\", status=\"403\"} |= \"\"",
+          "expr": "{job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"403\\\"\"",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1952,32 +2086,64 @@
       "datasource": "Loki",
       "description": "Suspicious activity detected in access logs",
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 12,
         "x": 12,
-        "y": 55
+        "y": 71
       },
-      "id": 33,
+      "id": 35,
       "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
         "dedupStrategy": "none",
-        "sortOrder": "Descending"
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": false,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
       },
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "{job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(union|select|drop|insert|delete|script|alert|\\\\.\\\\./|sqlmap|havij)\"",
+          "expr": "{job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(union|select|drop|insert|delete|script|alert|\\.\\./|/etc/passwd|nikto|nmap|sqlmap)\"",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
         }
       ],
       "title": "Suspicious Activity",
+      "type": "logs"
+    },
+    {
+      "datasource": "Loki",
+      "description": "Recent security events and attack patterns",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 79
+      },
+      "id": 36,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "{job=\"nginx-logs\"} |~ \"403|union|select|drop|insert|delete|\\.\\.\"",
+          "interval": "",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Security Events Log",
       "type": "logs"
     }
   ],
@@ -1986,9 +2152,10 @@
   "style": "dark",
   "tags": [
     "waf",
+    "security",
     "nginx",
-    "ml",
-    "security"
+    "unified",
+    "master"
   ],
   "templating": {
     "list": []
@@ -1999,7 +2166,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Unified WAF & Nginx Monitoring Dashboard",
-  "uid": "unified-waf-monitoring",
+  "title": "🛡️ Master WAF & Nginx Security Dashboard",
+  "uid": "master-waf-dashboard",
   "version": 1
 }

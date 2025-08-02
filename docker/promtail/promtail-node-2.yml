@@ -27,6 +27,8 @@ scrape_configs:
           status:
           request_uri:
           http_user_agent:
+          body_bytes_sent:
+          request_time:
       - timestamp:
           source: time_local
           format: 02/Jan/2006:15:04:05 -0700
