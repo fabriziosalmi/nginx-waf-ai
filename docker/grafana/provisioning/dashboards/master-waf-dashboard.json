@@ -809,13 +809,13 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "count(count by (remote_addr) ({job=\"nginx-logs\", log_type=\"access\"} [5m]))",
+          "expr": "count(rate({job=\"nginx-logs\", log_type=\"access\"} [5m]) > 0)",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
         }
       ],
-      "title": "Unique IPs (5m)",
+      "title": "Active Log Streams",
       "type": "stat"
     },
     {
@@ -2105,7 +2105,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "{job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(union|select|drop|insert|delete|script|alert|\\.\\./|/etc/passwd|nikto|nmap|sqlmap)\"",
+          "expr": "{job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(union|select|drop|insert|delete|script|alert|\\\\.\\\\./)\"",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -2137,7 +2137,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "{job=\"nginx-logs\"} |~ \"403|union|select|drop|insert|delete|\\.\\.\"",
+          "expr": "{job=\"nginx-logs\"} |~ \"403|union|select|drop|insert|delete|\\\\.\\\\.\"",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
