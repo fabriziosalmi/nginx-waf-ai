@@ -211,22 +211,11 @@ auth_attempts = Counter('waf_auth_attempts_total', 'Authentication attempts', ['
 traffic_volume = Gauge('waf_traffic_volume_total', 'Total traffic volume processed')
 recent_requests = Gauge('waf_recent_requests', 'Recent requests processed')
 
-# Initialize metrics with default values to ensure they appear in /metrics
-rules_active.set(3)  # Show 3 demo WAF rules
-nodes_registered.set(2)  # Show 2 nginx nodes
-traffic_volume.set(1000)  # Demo traffic volume
-recent_requests.set(50)  # Demo recent requests
-
-# Add some demo threat detection data
-threats_detected.labels(threat_type='sql_injection')._value._value = 15
-threats_detected.labels(threat_type='xss')._value._value = 8
-threats_detected.labels(threat_type='directory_traversal')._value._value = 5
-
-# Add some demo request data
-requests_total.labels(node_id='nginx-node-1', status='200')._value._value = 1250
-requests_total.labels(node_id='nginx-node-2', status='200')._value._value = 1100
-requests_total.labels(node_id='nginx-node-1', status='400')._value._value = 25
-requests_total.labels(node_id='nginx-node-2', status='400')._value._value = 18
+# Initialize metrics with zero values - will be updated by real system data
+rules_active.set(0)
+nodes_registered.set(0)
+traffic_volume.set(0)
+recent_requests.set(0)
 
 # Global components with thread safety - use proper synchronization
 class ComponentManager:
@@ -392,12 +381,12 @@ async def startup_components():
                     node_urls = [url.strip() for url in nginx_nodes_env.split(',') if url.strip()]
                     logger.info(f"Found nginx nodes: {node_urls}")
                     
-                    # Create nginx node objects (simplified for demo)
+                    # Create nginx node objects from configuration
                     for i, url in enumerate(node_urls):
                         nginx_nodes.append(NginxNode(
                             node_id=f"node_{i+1}",
                             hostname=url,
-                            ssh_host="localhost",  # Default for demo
+                            ssh_host=url.split('//')[1].split(':')[0],  # Extract hostname from URL
                             ssh_port=22,
                             ssh_username="nginx",
                             ssh_key_path=None,
@@ -742,15 +731,14 @@ async def get_metrics():
         traffic_collector = component_manager.get_component('traffic_collector')
         ml_engine = component_manager.get_component('ml_engine')
         
-        # Update nodes count (preserve demo value if no nginx_manager)
-        if nginx_manager and hasattr(nginx_manager, 'nodes'):
-            nodes_registered.set(len(nginx_manager.nodes))
-        # Don't reset to 0 if nginx_manager is None - preserve demo value
+        # Update nodes count with real values
+        nodes_registered.set(len(nginx_manager.nodes) if nginx_manager and hasattr(nginx_manager, 'nodes') else 0)
         
-        # Update rules count (preserve demo value if no waf_rule_generator)
+        # Update rules count with real values
         if waf_rule_generator and hasattr(waf_rule_generator, 'active_rules'):
             rules_active.set(len(waf_rule_generator.active_rules))
-        # Don't reset to 0 if waf_rule_generator is None - preserve demo value
+        else:
+            rules_active.set(0)
             
         # Update traffic metrics
         if traffic_collector and hasattr(traffic_collector, 'total_requests'):
@@ -784,8 +772,8 @@ async def get_metrics():
 # ============= PROTECTED ENDPOINTS =============
 
 @app.get("/api/debug/status")
-async def debug_status():  # Temporarily removed auth for testing
-    """Debug endpoint to check system status - temporarily public for testing"""
+async def debug_status(current_user: TokenData = require_admin()):
+    """Debug endpoint to check system status (admin only)"""
     
     # Get components safely using component manager
     traffic_collector = component_manager.get_component('traffic_collector')
@@ -1038,8 +1026,8 @@ async def start_traffic_collection(
 
 
 @app.get("/api/traffic/stats")
-async def get_traffic_stats():  # Temporarily removed auth for testing
-    """Get traffic collection statistics - temporarily public for testing"""
+async def get_traffic_stats(current_user: TokenData = require_viewer()):
+    """Get traffic collection statistics - viewer role or higher required"""
     traffic_collector = component_manager.get_component('traffic_collector')
     if traffic_collector is None:
         return {"message": "Traffic collection not started", "total_requests": 0}
@@ -1293,8 +1281,8 @@ async def process_threats_continuously():
 
 
 @app.get("/api/threats")
-async def get_recent_threats() -> ThreatResponse:  # Temporarily removed auth for testing
-    """Get recent threat detections - temporarily public for testing"""
+async def get_recent_threats(current_user: TokenData = require_viewer()) -> ThreatResponse:
+    """Get recent threat detections - viewer role or higher required"""
     real_time_processor = component_manager.get_component('real_time_processor')
     if real_time_processor is None:
         return ThreatResponse(threats=[], total_threats=0, threat_patterns={})
@@ -1310,8 +1298,8 @@ async def get_recent_threats() -> ThreatResponse:  # Temporarily removed auth fo
 
 
 @app.get("/api/rules")
-async def get_active_rules():  # Temporarily removed auth for testing
-    """Get currently active WAF rules - temporarily public for testing"""
+async def get_active_rules(current_user: TokenData = require_viewer()):
+    """Get currently active WAF rules - viewer role or higher required"""
     waf_rule_generator = component_manager.get_component('waf_rule_generator')
     if waf_rule_generator is None:
         return {"rules": [], "total_rules": 0}

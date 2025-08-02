@@ -25,7 +25,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - LOG_LEVEL=INFO
       - NGINX_NODES=http://log-server-1:8080,http://log-server-2:8080
-      - WAF_CORS_ORIGINS=http://localhost,http://127.0.0.1,http://localhost:80,http://127.0.0.1:80,http://localhost:3000,http://localhost:8080,http://localhost:8000
+      - WAF_CORS_ORIGINS=http://localhost:3080,http://127.0.0.1:3080
     volumes:
       - ./data:/app/data
       - ./models:/app/models

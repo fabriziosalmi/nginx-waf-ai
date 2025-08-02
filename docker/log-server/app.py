@@ -73,60 +73,16 @@ def get_recent_logs(limit: int = 100) -> List[Dict]:
                     if parsed:
                         logs.append(parsed)
         else:
-            # If no log file exists, generate some sample data
-            logs = generate_sample_logs()
+            # If no log file exists, return empty logs
+            print(f"Log file {LOG_PATH} does not exist")
             
     except Exception as e:
         print(f"Error reading logs: {e}")
-        # Return sample data if file reading fails
-        logs = generate_sample_logs()
-    
+        # Return empty logs if file reading fails
+        
     return logs
 
-def generate_sample_logs() -> List[Dict]:
-    """Generate sample log data for testing"""
-    sample_logs = []
-    now = datetime.now()
-    
-    # Generate some normal requests
-    normal_requests = [
-        {"method": "GET", "url": "/", "status": 200, "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
-        {"method": "GET", "url": "/api/products", "status": 200, "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"},
-        {"method": "POST", "url": "/api/login", "status": 200, "user_agent": "curl/7.68.0"},
-        {"method": "GET", "url": "/dashboard/", "status": 200, "user_agent": "Mozilla/5.0 (X11; Linux x86_64)"},
-    ]
-    
-    # Generate some suspicious requests
-    suspicious_requests = [
-        {"method": "GET", "url": "/admin' OR 1=1--", "status": 403, "user_agent": "sqlmap/1.6.12"},
-        {"method": "POST", "url": "/search", "status": 200, "user_agent": "Mozilla/5.0", "body": "<script>alert('xss')</script>"},
-        {"method": "GET", "url": "/api/users?id=1' UNION SELECT * FROM passwords--", "status": 403, "user_agent": "python-requests/2.28.1"},
-        {"method": "GET", "url": "/.env", "status": 404, "user_agent": "Wget/1.20.3"},
-    ]
-    
-    # Mix normal and suspicious requests
-    all_requests = normal_requests * 5 + suspicious_requests
-    
-    for i, req in enumerate(all_requests[:20]):  # Limit to 20 entries
-        sample_logs.append({
-            "timestamp": (now - timedelta(minutes=i)).isoformat(),
-            "method": req["method"],
-            "url": req["url"],
-            "status": req["status"],
-            "size": 1024 + i * 10,
-            "referer": "",
-            "user_agent": req["user_agent"],
-            "source_ip": f"192.168.1.{100 + (i % 50)}",
-            "headers": {
-                "user-agent": req["user_agent"],
-                "referer": ""
-            },
-            "body": req.get("body", ""),
-            "content_length": req.get("size", 0),
-            "node_id": NODE_ID
-        })
-    
-    return sample_logs
+# Mock data generation removed - using real log parsing only
 
 @app.get("/")
 async def root():
