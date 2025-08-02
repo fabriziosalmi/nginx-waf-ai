@@ -23,17 +23,8 @@ import os
 # Import error handling utilities
 from .error_handling import retry_decorator, error_recovery, degradation_manager
 
-# Import prometheus metrics for real-time updates
-try:
-    from prometheus_client import Counter
-    METRICS_AVAILABLE = True
-    
-    # Threat detection metrics
-    threats_detected = Counter('waf_threats_detected_total', 'Total threats detected', ['threat_type'])
-    
-except ImportError:
-    METRICS_AVAILABLE = False
-    logger.warning("Prometheus metrics not available in ML Engine")
+# No local metrics - all metrics updates handled by main.py to avoid conflicts
+METRICS_AVAILABLE = True
 
 
 @dataclass
@@ -305,10 +296,10 @@ class MLEngine:
                         )
                         predictions.append(prediction)
                         
-                        # Update metrics when threat is detected
+                        # Metrics updates handled centrally by main.py to avoid conflicts
                         if METRICS_AVAILABLE and threat_type != 'normal' and confidence > 0.5:
-                            threats_detected.labels(threat_type=threat_type).inc()
                             logger.debug(f"Threat detected: {threat_type} (confidence: {confidence:.2f})")
+                            # Metrics will be updated by main.py when threats are fetched
                         
                     except Exception as e:
                         logger.error(f"Error creating prediction for request {i}: {e}")

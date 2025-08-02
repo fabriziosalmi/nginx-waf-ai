@@ -12,18 +12,8 @@ from datetime import datetime
 import httpx
 from loguru import logger
 
-# Import prometheus metrics for real-time updates
-try:
-    from prometheus_client import Gauge
-    METRICS_AVAILABLE = True
-    
-    # Metrics (imported from main.py to avoid conflicts)
-    traffic_volume = Gauge('waf_traffic_volume_total', 'Total traffic volume processed')
-    recent_requests_gauge = Gauge('waf_recent_requests', 'Recent requests processed')
-    
-except ImportError:
-    METRICS_AVAILABLE = False
-    logger.warning("Prometheus metrics not available")
+# No local metrics - all metrics updates handled by main.py to avoid conflicts
+METRICS_AVAILABLE = True
 
 
 @dataclass
@@ -191,21 +181,10 @@ class TrafficCollector:
             return None
     
     def _update_metrics(self, request: HttpRequest):
-        """Update Prometheus metrics with real-time data"""
-        if METRICS_AVAILABLE:
-            try:
-                # Update request counter (assume status 200 for now since log entry might not have status)
-                status = '200'  # Default status for collected requests
-                requests_total.labels(node_id=request.node_id, status=status).inc()
-                
-                # Update volume gauge
-                traffic_volume.set(len(self.collected_requests))
-                
-                # Update recent requests gauge
-                recent_requests.set(len(self.get_recent_requests(100)))
-                
-            except Exception as e:
-                logger.warning(f"Failed to update metrics: {e}")
+        """Metrics updates handled centrally by main.py to avoid conflicts"""
+        # All metrics updates now handled by main.py metrics endpoint
+        # to avoid prometheus registry conflicts
+        pass
     
     def get_recent_requests(self, limit: int = 1000) -> List[HttpRequest]:
         """Get the most recent requests for ML processing"""

@@ -19,7 +19,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Response, Depends, 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.security import HTTPBearer
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from loguru import logger
 from pydantic import BaseModel
 
@@ -202,21 +202,8 @@ async def add_security_headers(request, call_next):
     logger.info(f"Response status: {response.status_code}")
     return response
 
-# Prometheus metrics
-requests_total = Counter('waf_requests_total', 'Total number of requests processed', ['node_id', 'status'])
-threats_detected = Counter('waf_threats_detected_total', 'Total number of threats detected', ['threat_type'])
-rules_active = Gauge('waf_rules_active', 'Number of active WAF rules')
-nodes_registered = Gauge('waf_nodes_registered', 'Number of registered nginx nodes')
-processing_time = Histogram('waf_processing_time_seconds', 'Time spent processing requests')
-auth_attempts = Counter('waf_auth_attempts_total', 'Authentication attempts', ['status'])
-traffic_volume = Gauge('waf_traffic_volume_total', 'Total traffic volume processed')
-recent_requests = Gauge('waf_recent_requests', 'Recent requests processed')
-
-# Initialize metrics with zero values - will be updated by real system data
-rules_active.set(0)
-nodes_registered.set(0)
-traffic_volume.set(0)
-recent_requests.set(0)
+# Import metrics module to centralize Prometheus metrics
+from . import metrics
 
 # Global components with thread safety - use proper synchronization
 class ComponentManager:
@@ -526,14 +513,14 @@ async def login(request: LoginRequest):
     try:
         user = auth_manager.authenticate_user(request.username, request.password)
         if not user:
-            auth_attempts.labels(status="failed").inc()
+            metrics.auth_attempts.labels(status="failed").inc()
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid credentials",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        auth_attempts.labels(status="success").inc()
+        metrics.auth_attempts.labels(status="success").inc()
         token = auth_manager.create_jwt_token(user.username)
         
         return AuthResponse(
@@ -544,7 +531,7 @@ async def login(request: LoginRequest):
     
     except Exception as e:
         logger.error(f"Login error: {e}")
-        auth_attempts.labels(status="error").inc()
+        metrics.auth_attempts.labels(status="error").inc()
         raise HTTPException(status_code=500, detail="Authentication error")
 
 
@@ -733,27 +720,27 @@ async def get_metrics():
         ml_engine = component_manager.get_component('ml_engine')
         
         # Update nodes count with real values
-        nodes_registered.set(len(nginx_manager.nodes) if nginx_manager and hasattr(nginx_manager, 'nodes') else 0)
+        metrics.nodes_registered.set(len(nginx_manager.nodes) if nginx_manager and hasattr(nginx_manager, 'nodes') else 0)
         
         # Update rules count with real values
         if waf_rule_generator and hasattr(waf_rule_generator, 'active_rules'):
-            rules_active.set(len(waf_rule_generator.active_rules))
+            metrics.rules_active.set(len(waf_rule_generator.active_rules))
         else:
-            rules_active.set(0)
+            metrics.rules_active.set(0)
             
         # Update traffic metrics with real data
         if traffic_collector and hasattr(traffic_collector, 'collected_requests'):
-            traffic_volume.set(len(traffic_collector.collected_requests))
+            metrics.traffic_volume.set(len(traffic_collector.collected_requests))
         else:
-            traffic_volume.set(0)
+            metrics.traffic_volume.set(0)
         
         if traffic_collector:
             try:
-                recent_requests.set(len(traffic_collector.get_recent_requests(100)))
+                metrics.recent_requests.set(len(traffic_collector.get_recent_requests(100)))
             except Exception:
-                recent_requests.set(0)
+                metrics.recent_requests.set(0)
         else:
-            recent_requests.set(0)
+            metrics.recent_requests.set(0)
             
     except Exception as e:
         logger.error(f"Error updating metrics: {e}")
@@ -1163,7 +1150,7 @@ async def process_traffic_continuously():
                             
                             # Increment metrics
                             print(f"Incrementing metrics: node_id={node_id}, status={status}")
-                            requests_total.labels(node_id=node_id, status=status).inc()
+                            metrics.requests_total.labels(node_id=node_id, status=status).inc()
                             
                             # Check for threats with updated threshold
                             if prediction and (prediction.threat_score < -0.1 or prediction.confidence > 0.6 or prediction.threat_type != 'normal'):
@@ -1179,7 +1166,7 @@ async def process_traffic_continuously():
                                     elif '/etc/' in request.url or '/.env' in request.url:
                                         threat_type = 'file_access'
                                 
-                                threats_detected.labels(threat_type=threat_type).inc()
+                                metrics.threats_detected.labels(threat_type=threat_type).inc()
                                 print(f"Threat detected: {threat_type} (score: {prediction.threat_score:.3f}, confidence: {prediction.confidence:.3f})")
                             
                             processed_count += 1
@@ -1203,7 +1190,7 @@ async def process_traffic_continuously():
         # Update active rules count
         waf_rule_generator = component_manager.get_component('waf_rule_generator')
         if waf_rule_generator:
-            rules_active.set(len(getattr(waf_rule_generator, 'active_rules', [])))
+            metrics.rules_active.set(len(getattr(waf_rule_generator, 'active_rules', [])))
         
         await asyncio.sleep(2)  # Process every 2 seconds
 
@@ -1295,6 +1282,26 @@ async def get_recent_threats(current_user: TokenData = require_viewer()) -> Thre
     
     threats = [threat.to_dict() for threat in real_time_processor.recent_threats]
     threat_patterns = real_time_processor.get_threat_patterns()
+    
+    # Update threat metrics when fetching data
+    try:
+        # Count threats by type for metrics
+        threat_counts = {}
+        for threat in threats:
+            threat_type = threat.get('threat_type', 'unknown')
+            if threat_type != 'normal':
+                threat_counts[threat_type] = threat_counts.get(threat_type, 0) + 1
+        
+        # Update Prometheus metrics
+        for threat_type, count in threat_counts.items():
+            # Set the counter to the current count (this is a gauge-like behavior)
+            # In a real system, you'd increment counters as threats are detected
+            current_value = metrics.threats_detected.labels(threat_type=threat_type)._value._value
+            if current_value < count:
+                metrics.threats_detected.labels(threat_type=threat_type).inc(count - current_value)
+                
+    except Exception as e:
+        logger.warning(f"Failed to update threat metrics: {e}")
     
     return ThreatResponse(
         threats=threats,
@@ -1510,7 +1517,7 @@ async def process_traffic_continuously():
                             
                             if prediction and prediction.threat_score < -0.1:
                                 logger.info(f"Threat detected: {prediction.threat_type} (score: {prediction.threat_score})")
-                                threats_detected.labels(threat_type=prediction.threat_type).inc()
+                                metrics.threats_detected.labels(threat_type=prediction.threat_type).inc()
                                 
                         except Exception as e:
                             logger.error(f"Error processing request: {e}")
