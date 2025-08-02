@@ -1466,31 +1466,38 @@
                                 <div id="service-status-list">
                                     <div class="service-item">
                                         <div class="service-info">
-                                            <div class="status-indicator running"></div>
+                                            <div id="traffic-status" class="status-indicator warning"></div>
                                             <span class="service-name">Traffic Collector</span>
                                         </div>
-                                        <span class="service-status-text">Running</span>
+                                        <span id="traffic-status-text" class="service-status-text">Checking...</span>
                                     </div>
                                     <div class="service-item">
                                         <div class="service-info">
-                                            <div class="status-indicator stopped"></div>
+                                            <div id="ml-status" class="status-indicator warning"></div>
                                             <span class="service-name">ML Engine</span>
                                         </div>
-                                        <span class="service-status-text">Stopped</span>
+                                        <span id="ml-status-text" class="service-status-text">Checking...</span>
                                     </div>
                                     <div class="service-item">
                                         <div class="service-info">
-                                            <div class="status-indicator stopped"></div>
+                                            <div id="threat-status" class="status-indicator warning"></div>
                                             <span class="service-name">Threat Detection</span>
                                         </div>
-                                        <span class="service-status-text">Stopped</span>
+                                        <span id="threat-status-text" class="service-status-text">Checking...</span>
                                     </div>
                                     <div class="service-item">
                                         <div class="service-info">
-                                            <div class="status-indicator warning"></div>
+                                            <div id="rules-status" class="status-indicator warning"></div>
                                             <span class="service-name">WAF Rules</span>
                                         </div>
-                                        <span class="service-status-text">Idle</span>
+                                        <span id="rules-status-text" class="service-status-text">Checking...</span>
+                                    </div>
+                                    <div class="service-item">
+                                        <div class="service-info">
+                                            <div id="waf-api-status" class="status-indicator warning"></div>
+                                            <span class="service-name">WAF API</span>
+                                        </div>
+                                        <span id="waf-api-status-text" class="service-status-text">Checking...</span>
                                     </div>
                                 </div>
                             </div>
@@ -1516,17 +1523,17 @@
                                 <div id="node-status-list">
                                     <div class="node-item">
                                         <div class="node-info">
-                                            <div class="status-indicator running"></div>
+                                            <div id="nginx-node-1-status" class="status-indicator warning"></div>
                                             <span class="node-name">nginx-node-1 (localhost:8081)</span>
                                         </div>
-                                        <span class="node-status-text">Online</span>
+                                        <span id="nginx-node-1-status-text" class="node-status-text">Checking...</span>
                                     </div>
                                     <div class="node-item">
                                         <div class="node-info">
-                                            <div class="status-indicator running"></div>
+                                            <div id="nginx-node-2-status" class="status-indicator warning"></div>
                                             <span class="node-name">nginx-node-2 (localhost:8082)</span>
                                         </div>
-                                        <span class="node-status-text">Online</span>
+                                        <span id="nginx-node-2-status-text" class="node-status-text">Checking...</span>
                                     </div>
                                 </div>
                             </div>
@@ -2261,7 +2268,7 @@
 
         async function getTrafficStatus() {
             try {
-                const result = await apiCall('/debug/status');
+                const result = await apiCall('/api/debug/status');
                 const collector = result.traffic_collector;
                 const status = collector.is_collecting ? 'running' : 'stopped';
                 const text = collector.is_collecting ? 'Running' : 'Stopped';
@@ -2270,7 +2277,7 @@
                 addLog(`Traffic status: ${text}, Requests: ${collector.collected_requests_count || 0}`, 'info');
             } catch (error) {
                 addLog(`Failed to get traffic status: ${error.message}`, 'error');
-                updateStatus('traffic', 'warning', 'Unknown');
+                updateStatus('traffic', 'stopped', 'Error');
             }
         }        async function refreshTrafficMetrics() {
             await getTrafficStatus();
@@ -2295,7 +2302,7 @@
 
         async function getMLStatus() {
             try {
-                const result = await apiCall('/debug/status');
+                const result = await apiCall('/api/debug/status');
                 const mlEngine = result.ml_engine;
                 addLog(`ML Status: Initialized=${mlEngine.initialized}, Trained=${mlEngine.is_trained}`, 'info');
                 if (mlEngine.initialized && mlEngine.is_trained) {
@@ -2307,7 +2314,7 @@
                 }
             } catch (error) {
                 addLog(`Failed to get ML status: ${error.message}`, 'error');
-                updateStatus('ml', 'warning', 'Unknown');
+                updateStatus('ml', 'stopped', 'Error');
             }
         }        // Threat Detection Functions
         async function startThreatDetection() {
@@ -2336,7 +2343,7 @@
         
         async function getThreatStatus() {
             try {
-                const result = await apiCall('/debug/status');
+                const result = await apiCall('/api/debug/status');
                 const processing = result.processing;
                 const status = processing.is_processing ? 'running' : 'stopped';
                 const text = processing.is_processing ? 'Active' : 'Stopped';
@@ -2345,7 +2352,7 @@
                 await refreshThreatMetrics();
             } catch (error) {
                 addLog(`Failed to get threat status: ${error.message}`, 'error');
-                updateStatus('threat', 'warning', 'Unknown');
+                updateStatus('threat', 'stopped', 'Error');
             }
         }
 

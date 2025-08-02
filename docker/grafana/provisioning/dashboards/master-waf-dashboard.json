@@ -746,7 +746,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"[45][0-9][0-9]\\\"\" [5m]))",
+          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"\\\" [45][0-9][0-9] \" [5m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -872,7 +872,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"403\\\"\" [5m]))",
+          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"\\\" 403 \" [5m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
@@ -1034,25 +1034,25 @@
       },
       "targets": [
         {
-          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"2[0-9][0-9]\\\"\" [5m])) by (status)",
+          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"\\\" 2[0-9][0-9] \" [5m]))",
           "interval": "",
           "legendFormat": "2xx Success",
           "refId": "A"
         },
         {
-          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"3[0-9][0-9]\\\"\" [5m])) by (status)",
+          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"\\\" 3[0-9][0-9] \" [5m]))",
           "interval": "",
           "legendFormat": "3xx Redirect",
           "refId": "B"
         },
         {
-          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"4[0-9][0-9]\\\"\" [5m])) by (status)",
+          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"\\\" 4[0-9][0-9] \" [5m]))",
           "interval": "",
           "legendFormat": "4xx Client Error",
           "refId": "C"
         },
         {
-          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"5[0-9][0-9]\\\"\" [5m])) by (status)",
+          "expr": "sum(count_over_time({job=\"nginx-logs\", log_type=\"access\"} |~ \"\\\" 5[0-9][0-9] \" [5m]))",
           "interval": "",
           "legendFormat": "5xx Server Error",
           "refId": "D"
@@ -2073,7 +2073,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "{job=\"nginx-logs\", log_type=\"access\"} |~ \"status=\\\"403\\\"\"",
+          "expr": "{job=\"nginx-logs\", log_type=\"access\"} |~ \"\\\" 403 \"",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
