@@ -32,7 +32,8 @@ class WAFRule:
         elif self.rule_type == "block_user_agent":
             return f'if ($http_user_agent ~ "{self.condition}") {{ return 403; }}'
         elif self.rule_type == "rate_limit":
-            return f"limit_req zone={self.condition};"
+            # Use existing zone defined in main nginx config to avoid conflicts
+            return f"limit_req zone=main burst=5 nodelay;"
         else:
             return f"# {self.description}"
     
@@ -170,7 +171,7 @@ class WAFRuleGenerator:
         return WAFRule(
             rule_id=f"waf_rule_{self.rule_counter}",
             rule_type="rate_limit",
-            condition="main burst=10 nodelay",
+            condition="high_threat_volume",  # Just a description, zone is hardcoded in to_nginx_config
             action="rate_limit",
             description=f"Rate limit due to high threat volume ({total_threats} threats)",
             severity="medium",
