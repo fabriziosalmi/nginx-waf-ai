@@ -29,6 +29,7 @@
 🧠 **AI-Powered Threat Detection** - Advanced ML algorithms for anomaly detection and threat classification  
 ⚡ **Automated Rule Generation** - Converts ML predictions into nginx-compatible WAF rules  
 🌐 **Multi-node Orchestration** - Seamless rule distribution across nginx clusters  
+🎛️ **Professional Control Panel** - Modern web interface for unified system management  
 🔒 **Role-based Security** - Admin/Operator/Viewer access control with JWT authentication  
 📊 **Comprehensive Monitoring** - Real-time dashboards with Prometheus & Grafana integration  
 🚀 **Production-Ready** - Docker Compose deployment with high availability  
@@ -59,6 +60,10 @@ graph TB
         ML[ML Engine]
         RG[Rule Generator]
         API[FastAPI Server]
+    end
+    
+    subgraph "Management Interface"
+        CP[Control Panel]
     end
     
     subgraph "Storage & Cache"
@@ -94,6 +99,10 @@ graph TB
     API <--> RG
     API <--> NM
     
+    CP --> API
+    CP --> G
+    CP --> P
+    
     ML <--> R
     ML <--> M
     
@@ -105,6 +114,7 @@ graph TB
     style API fill:#f3e5f5
     style RG fill:#e8f5e8
     style TC fill:#fff3e0
+    style CP fill:#f3e5f5
 ```
 
 </div>
@@ -118,6 +128,7 @@ graph TB
 | **⚙️ WAF Rule Generator** | ML predictions → nginx rules conversion | Custom rule engine |
 | **🚀 Nginx Manager** | Multi-node configuration deployment | SSH, nginx API |
 | **🔌 FastAPI Server** | RESTful API & real-time monitoring | FastAPI, WebSockets |
+| **🎛️ Control Panel** | Web-based system management interface | HTML5, CSS3, JavaScript |
 | **💾 Redis Cache** | Session storage & real-time data | Redis 7+ |
 | **📊 Monitoring** | Metrics, logs & visualization | Prometheus, Grafana, Loki |
 
@@ -183,6 +194,18 @@ graph TB
 
 </details>
 
+<details>
+<summary><b>🎛️ Control Panel</b> (<code>docker/control-panel/</code>)</summary>
+
+- **Modern Web Interface**: Professional HTML5/CSS3/JavaScript single-page application
+- **Real-time Updates**: Live system metrics and status updates every 30 seconds
+- **Service Management**: Start, stop, and monitor all WAF AI components
+- **Docker Integration**: Containerized with nginx reverse proxy for reliability
+- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
+- **CORS Proxy**: Unified API access through nginx proxy configuration
+
+</details>
+
 ## 🛠️ Installation
 
 ### 📋 Prerequisites
@@ -208,9 +231,10 @@ docker-compose ps
 
 **Services included:**
 - WAF AI API Server (port 8000)
+- WAF AI Control Panel (port 8090)
 - Redis (port 6379)
 - Prometheus (port 9090)
-- Grafana (port 3000)
+- Grafana (port 3080)
 - Loki (port 3100)
 - 2x Nginx test nodes (ports 8081, 8082)
 
@@ -433,11 +457,104 @@ curl -X POST "http://localhost:8000/api/rules/deploy" \
 
 ### 📊 Step 6: Access Monitoring Dashboards
 
-- **🎛️ WAF AI Web Dashboard**: http://localhost:8000/dashboard (centralized management)
+- **🎛️ WAF AI Control Panel**: http://localhost:8090 (unified system management)
 - **📖 API Documentation**: http://localhost:8000/docs
-- **📊 Grafana Dashboard**: http://localhost:3000 (admin/admin)
+- **📊 Grafana Dashboard**: http://localhost:3080 (admin/admin)
 - **🔍 Prometheus Metrics**: http://localhost:9090
 - **💚 System Health**: http://localhost:8000/health
+
+## 🎛️ Control Panel
+
+The **WAF AI Control Panel** provides a professional, web-based interface for managing your entire WAF system. Built with modern technologies and containerized for reliability.
+
+### ✨ Features
+
+🖥️ **Modern UI/UX** - Professional, responsive interface with real-time updates  
+🎯 **System Overview** - Centralized dashboard showing all service statuses  
+🚀 **Service Control** - Start, stop, and manage all WAF components  
+📊 **Real-time Metrics** - Live system metrics and performance indicators  
+🔍 **Traffic Monitoring** - HTTP request analysis and threat detection status  
+🧠 **ML Engine Control** - Model training, evaluation, and status monitoring  
+⚙️ **Rule Management** - WAF rule generation, deployment, and lifecycle management  
+📈 **Quick Links** - Direct access to Grafana, Prometheus, and API documentation  
+📜 **System Logs** - Real-time log monitoring with filtering and search  
+
+### 🚀 Getting Started
+
+The control panel is automatically deployed with Docker Compose:
+
+```bash
+# Start the full stack (includes control panel)
+docker-compose up -d
+
+# Access the control panel
+open http://localhost:8090
+```
+
+### 🎯 Main Dashboard
+
+The main dashboard provides six main service cards:
+
+#### 🌐 Traffic Control
+- **Start/Stop** traffic collection from nginx nodes
+- **View Status** of data ingestion processes  
+- **Monitor Metrics** - request counts and rates
+
+#### 🤖 ML Engine
+- **Train Models** with one-click training
+- **View Model Info** - accuracy, performance metrics
+- **Check Status** - initialization and training state
+
+#### 🔍 Threat Detection
+- **Start/Stop** real-time threat analysis
+- **Monitor Threats** - detection counts and blocked requests
+- **View Processing** - real-time analysis status
+
+#### 📋 WAF Rules
+- **Generate Rules** automatically from ML predictions
+- **Deploy Rules** to nginx nodes
+- **Rule Statistics** - active rules, deployment status
+- **Cleanup** expired and unused rules
+
+#### 💚 System Health
+- **Health Checks** - overall system status
+- **System Metrics** - uptime, memory usage
+- **All Metrics** - comprehensive Prometheus data
+
+#### 🎛️ Master Control
+- **Start All Services** - one-click system startup
+- **Stop All Services** - graceful system shutdown
+- **System Restart** - full system restart sequence
+
+### 🔧 Advanced Features
+
+**Real-time Logs**: Monitor system activity with color-coded log levels  
+**Auto-refresh**: Service status updates every 30 seconds  
+**Responsive Design**: Works on desktop, tablet, and mobile devices  
+**Error Handling**: Robust error reporting and recovery suggestions  
+**Navigation**: Clean sidebar navigation with external service links  
+
+### 🌐 Architecture
+
+The control panel runs in its own Docker container with nginx as a reverse proxy:
+
+```yaml
+control-panel:
+  build: ./docker/control-panel
+  ports:
+    - "8090:80"
+  depends_on:
+    - waf-api
+```
+
+**Proxy Configuration**: Nginx proxies API calls to the main WAF API server, enabling CORS and providing a unified interface.
+
+### 🛠️ Customization
+
+The control panel can be customized by modifying:
+- `docker/control-panel/control-panel.html` - UI components and styling
+- `docker/control-panel/nginx.conf` - proxy configuration
+- Rebuild with: `docker-compose build control-panel`
 
 ## 🔧 CLI Usage
 
