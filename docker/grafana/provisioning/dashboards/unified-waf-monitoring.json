@@ -498,10 +498,16 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum by (node_id) (rate(waf_requests_total[5m]))",
+          "expr": "rate(waf_traffic_volume_total[1m])",
           "interval": "",
-          "legendFormat": "{{node_id}}",
+          "legendFormat": "Traffic Volume Rate",
           "refId": "A"
+        },
+        {
+          "expr": "rate(waf_recent_requests[1m]) * 60",
+          "interval": "",
+          "legendFormat": "Recent Requests/min",
+          "refId": "B"
         }
       ],
       "title": "Request Rate by Node",
@@ -579,10 +585,16 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "rate(waf_threats_detected_total[5m]) * 60",
+          "expr": "waf_threats_detected_total",
           "interval": "",
-          "legendFormat": "{{threat_type}}",
+          "legendFormat": "Threats Detected",
           "refId": "A"
+        },
+        {
+          "expr": "waf_rules_active",
+          "interval": "",
+          "legendFormat": "Active Rules",
+          "refId": "B"
         }
       ],
       "title": "Threat Detection Rate",
@@ -1500,9 +1512,9 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum by (threat_type) (increase(waf_threats_detected_total[24h]))",
+          "expr": "waf_threats_detected_total",
           "interval": "",
-          "legendFormat": "{{threat_type}}",
+          "legendFormat": "Total Threats",
           "refId": "A"
         }
       ],
@@ -1510,8 +1522,58 @@
       "type": "stat"
     },
     {
-      "datasource": "Loki",
-      "description": "Recent WAF rule generation and deployment events",
+      "datasource": "Prometheus",
+      "description": "Recent WAF system activity and metrics",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        }
+      },
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -1520,26 +1582,38 @@
       },
       "id": 27,
       "options": {
-        "showTime": true,
-        "showLabels": false,
-        "showCommonLabels": false,
-        "wrapLogMessage": false,
-        "prettifyLogMessage": false,
-        "enableLogDetails": true,
-        "dedupStrategy": "none",
-        "sortOrder": "Descending"
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       },
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "{job=\"waf-api\"} |~ \"(?i)(rule|deploy|threat|generated|applied)\"",
+          "expr": "waf_nodes_registered",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "Registered Nodes",
           "refId": "A"
+        },
+        {
+          "expr": "waf_rules_active",
+          "interval": "",
+          "legendFormat": "Active Rules",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(waf_traffic_volume_total[5m]) * 300",
+          "interval": "",
+          "legendFormat": "Traffic Rate (5m)",
+          "refId": "C"
         }
       ],
-      "title": "WAF Activity Log",
-      "type": "logs"
+      "title": "WAF Activity Metrics",
+      "type": "timeseries"
     },
     {
       "collapsed": false,
@@ -1627,25 +1701,124 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, rate(waf_processing_time_seconds_bucket[5m])) * 1000",
+          "expr": "histogram_quantile(0.50, rate(waf_request_duration_seconds_bucket[5m])) * 1000",
           "interval": "",
           "legendFormat": "p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(waf_processing_time_seconds_bucket[5m])) * 1000",
+          "expr": "histogram_quantile(0.95, rate(waf_request_duration_seconds_bucket[5m])) * 1000",
           "interval": "",
           "legendFormat": "p95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, rate(waf_processing_time_seconds_bucket[5m])) * 1000",
+          "expr": "histogram_quantile(0.99, rate(waf_request_duration_seconds_bucket[5m])) * 1000",
           "interval": "",
           "legendFormat": "p99",
           "refId": "C"
+        },
+        {
+          "expr": "rate(waf_request_duration_seconds_sum[5m]) / rate(waf_request_duration_seconds_count[5m]) * 1000",
+          "interval": "",
+          "legendFormat": "avg",
+          "refId": "D"
         }
       ],
       "title": "Processing Time Percentiles",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "vis": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 46
+      },
+      "id": 30,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(waf_rule_generation_duration_seconds_bucket[5m])) * 1000",
+          "interval": "",
+          "legendFormat": "p50 Rule Gen",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(waf_rule_generation_duration_seconds_bucket[5m])) * 1000",
+          "interval": "",
+          "legendFormat": "p95 Rule Gen",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(waf_rule_generation_duration_seconds_sum[5m]) / rate(waf_rule_generation_duration_seconds_count[5m]) * 1000",
+          "interval": "",
+          "legendFormat": "avg Rule Gen",
+          "refId": "C"
+        }
+      ],
+      "title": "Rule Generation Performance",
       "type": "timeseries"
     },
     {
