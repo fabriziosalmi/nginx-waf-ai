@@ -1273,7 +1273,7 @@
       "pluginVersion": "8.0.0",
       "targets": [
         {
-          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(\\\\.\\\\./|\\\\.\\\\.\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\/etc\\\\/passwd|\\\\/windows\\\\/win\\\\.ini)\" [5m]))",
+          "expr": "sum(rate({job=\"nginx-logs\", log_type=\"access\"} |~ \"(?i)(\\\\.\\\\./|/etc/passwd|/windows/win\\\\.ini|\\\\.\\\\./)\" [5m]))",
           "interval": "",
           "legendFormat": "",
           "refId": "A"
