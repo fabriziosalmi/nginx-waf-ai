@@ -56,7 +56,7 @@ Once the system is running, you can access:
 |---------|-----|-------------|
 | **WAF Dashboard** | http://localhost | admin/admin123 |
 | **WAF API** | http://localhost:8000 | admin/admin123 |
-| **Grafana** | http://localhost:3000 | admin/waf-admin |
+| **Grafana** | http://localhost:3080 | admin/waf-admin |
 | **Prometheus** | http://localhost:9090 | - |
 | **Nginx Node 1** | http://localhost:8081 | - |
 | **Nginx Node 2** | http://localhost:8082 | - |
@@ -128,7 +128,7 @@ docker-compose down -v --rmi all
 
 ### Grafana Dashboards
 
-1. **Open Grafana**: http://localhost:3000
+1. **Open Grafana**: http://localhost:3080
 2. **Login**: admin/waf-admin
 3. **Navigate to Dashboards**
 4. **View**: "WAF System Overview" dashboard
@@ -208,7 +208,7 @@ This ensures you see data flowing immediately and can test the system.
    ```bash
    # Check what's using ports
    lsof -i :8000  # WAF API
-   lsof -i :3000  # Grafana
+   lsof -i :3080  # Grafana
    lsof -i :9090  # Prometheus
    ```
 
@@ -272,7 +272,7 @@ For issues or questions:
          │                               │
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │    Grafana      │    │   Prometheus    │    │      Loki       │
-│   Port 3000     │    │   Port 9090     │    │   Port 3100     │
+│   Port 3080     │    │   Port 9090     │    │   Port 3100     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
