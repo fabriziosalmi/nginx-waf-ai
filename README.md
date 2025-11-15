@@ -255,9 +255,12 @@ pip install -r requirements.txt
 # Install test dependencies (optional)
 pip install -r test-requirements.txt
 
-# Setup configuration
-cp config/waf_ai_config.json.example config/waf_ai_config.json
-# Edit configuration as needed
+# Setup configuration (if needed, use example as template)
+cp .env.example .env
+# Edit .env with your settings
+
+# Configuration files are provided in config/ directory
+# Customize config/waf_ai_config.json if needed
 
 # Start Redis (required)
 redis-server
@@ -457,7 +460,7 @@ curl -X POST "http://localhost:8000/api/rules/deploy" \
 
 - **🎛️ WAF AI Control Panel**: http://localhost:8090 (unified system management)
 - **📖 API Documentation**: http://localhost:8000/docs
-- **📊 Grafana Dashboard**: http://localhost:3080 (admin/admin)
+- **📊 Grafana Dashboard**: http://localhost:3080 (admin/waf-admin)
 - **🔍 Prometheus Metrics**: http://localhost:9090
 - **💚 System Health**: http://localhost:8000/health
 
@@ -1084,7 +1087,7 @@ The system includes a complete observability stack:
 
 | Service | Purpose | Port | Dashboard |
 |---------|---------|------|-----------|
-| 📊 **Grafana** | Visualization & Alerting | 3000 | http://localhost:3000 |
+| 📊 **Grafana** | Visualization & Alerting | 3080 | http://localhost:3080 |
 | 🔍 **Prometheus** | Metrics Collection | 9090 | http://localhost:9090 |
 | 📝 **Loki** | Log Aggregation | 3100 | Integrated in Grafana |
 | 🚀 **WAF AI API** | System Metrics | 8000 | http://localhost:8000/metrics |
