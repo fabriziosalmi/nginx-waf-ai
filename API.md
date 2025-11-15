@@ -33,6 +33,8 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 - **Rate Limit**: 5 requests/minute
 - **Status**: ✅ **IMPLEMENTED**
 
+**Note**: This endpoint is currently commented out in the code. Use the default admin credentials (admin/admin123) for authentication through the UI or create users programmatically.
+
 **Request Body**:
 ```json
 {
@@ -50,17 +52,13 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 }
 ```
 
-**Testing Required**:
-- [ ] Valid credentials
-- [ ] Invalid credentials
-- [ ] Rate limiting enforcement
-- [ ] Password strength validation
-
 #### 1.2 Generate API Key
 - **Endpoint**: `POST /auth/api-key`
 - **Authentication**: Admin role required
 - **Rate Limit**: 3 requests/minute
-- **Status**: ✅ **IMPLEMENTED**
+- **Status**: ⚠️ **PARTIAL** - Currently commented out in the code
+
+**Note**: This endpoint exists in the codebase but is currently commented out. It will be available in a future release.
 
 **Request Body**:
 ```json
@@ -78,11 +76,6 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 }
 ```
 
-**Testing Required**:
-- [ ] Admin authentication
-- [ ] Non-admin access denial
-- [ ] API key generation and validation
-
 #### 1.3 Create User
 - **Endpoint**: `POST /auth/users`
 - **Authentication**: Admin role required
@@ -98,10 +91,14 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 }
 ```
 
-**Testing Required**:
-- [ ] User creation with valid roles
-- [ ] Password complexity validation
-- [ ] Duplicate username handling
+**Response**:
+```json
+{
+  "username": "string",
+  "roles": ["admin"],
+  "created_at": "2025-01-20T15:30:00"
+}
+```
 
 #### 1.4 List Users
 - **Endpoint**: `GET /auth/users`
@@ -109,9 +106,19 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 - **Rate Limit**: 10 requests/minute
 - **Status**: ✅ **IMPLEMENTED**
 
-**Testing Required**:
-- [ ] User listing with statistics
-- [ ] Admin-only access
+**Response**:
+```json
+{
+  "users": [
+    {
+      "username": "admin",
+      "roles": ["admin"],
+      "created_at": "2025-01-01T00:00:00"
+    }
+  ],
+  "total": 1
+}
+```
 
 ---
 
@@ -137,9 +144,7 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 }
 ```
 
-**Testing Required**:
-- [ ] Security statistics accuracy
-- [ ] Admin authentication
+---
 
 #### 2.2 Unblock IP Address
 - **Endpoint**: `POST /api/security/unblock-ip`
@@ -154,10 +159,15 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 }
 ```
 
-**Testing Required**:
-- [ ] IP address validation
-- [ ] Actual unblocking functionality
-- [ ] Security middleware integration
+**Response**:
+```json
+{
+  "status": "success",
+  "message": "IP address 192.168.1.100 unblocked"
+}
+```
+
+---
 
 #### 2.3 Emergency Shutdown
 - **Endpoint**: `POST /api/security/emergency-shutdown`
@@ -165,10 +175,13 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 - **Rate Limit**: 1 request/minute
 - **Status**: ⚠️ **PARTIAL** - Basic implementation
 
-**Testing Required**:
-- [ ] Emergency shutdown execution
-- [ ] System state preservation
-- [ ] Recovery procedures
+**Response**:
+```json
+{
+  "status": "shutdown_initiated",
+  "message": "Emergency shutdown initiated"
+}
+```
 
 ---
 

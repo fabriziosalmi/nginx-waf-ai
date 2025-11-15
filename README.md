@@ -266,8 +266,6 @@ redis-server
 python run_server.py
 ```
 
-### ⚙️ Configuration
-
 <details>
 <summary><b>Environment Variables</b></summary>
 
@@ -364,7 +362,7 @@ curl -X POST "http://localhost:8000/api/training/start" \
 python cli.py train \
   --training-data data/your_training_data.json \
   --labels data/your_labels.json \
-  --output models/custom_model.joblib
+  --model-output models/custom_model.joblib
 ```
 
 <details>
@@ -567,36 +565,14 @@ The system provides a comprehensive command-line interface for all operations:
 python cli.py train \
   --training-data data/requests.json \
   --labels data/labels.json \
-  --output models/custom_model.joblib \
-  --validate
-
-# Evaluate model performance
-python cli.py evaluate \
-  --model models/waf_model.joblib \
-  --test-data data/test_set.json \
-  --metrics precision,recall,f1
-
-# Update existing model with new data
-python cli.py retrain \
-  --model models/waf_model.joblib \
-  --new-data data/new_threats.json \
-  --incremental
+  --model-output models/custom_model.joblib
 ```
 
 ### 🌐 Node Management
 
 ```bash
-# Add multiple nginx nodes from config
-python cli.py nodes add --config config/nginx_nodes.json
-
-# Check cluster health
-python cli.py nodes status --detailed
-
-# Test connectivity to all nodes
-python cli.py nodes test --timeout 30
-
-# Remove offline nodes
-python cli.py nodes cleanup --offline-only
+# Check cluster health and node status
+python cli.py status --nodes-config config/nginx_nodes.json
 ```
 
 ### 📡 Traffic Operations
@@ -604,16 +580,9 @@ python cli.py nodes cleanup --offline-only
 ```bash
 # Start traffic collection with custom settings
 python cli.py collect \
-  --nodes config/nginx_nodes.json \
-  --duration 3600 \
-  --batch-size 1000 \
-  --output data/collected_traffic.json
-
-# Analyze historical traffic data
-python cli.py analyze \
-  --input data/traffic_logs.json \
-  --model models/waf_model.joblib \
-  --report reports/analysis.html
+  --nodes-config config/nginx_nodes.json \
+  --model-path models/waf_model.joblib \
+  --duration 3600
 ```
 
 ### ⚙️ Rule Management
@@ -621,37 +590,23 @@ python cli.py analyze \
 ```bash
 # Generate rules from recent threats
 python cli.py generate-rules \
-  --threats data/recent_threats.json \
-  --output rules/new_rules.conf \
-  --template templates/nginx_waf.j2
+  --threats-file data/recent_threats.json \
+  --output rules/new_rules.conf
 
-# Deploy rules with rollback support
+# Deploy rules to nginx nodes
 python cli.py deploy \
-  --rules rules/waf_rules.conf \
-  --nodes config/nginx_nodes.json \
-  --backup \
-  --test-first
-
-# Rollback to previous configuration
-python cli.py rollback \
-  --nodes config/nginx_nodes.json \
-  --version previous
+  --nodes-config config/nginx_nodes.json \
+  --rules-file rules/waf_rules.conf
 ```
 
 ### 🔍 Monitoring & Debugging
 
 ```bash
-# Real-time threat monitoring
-python cli.py monitor --live --threats-only
+# Check system status
+python cli.py status --nodes-config config/nginx_nodes.json
 
-# Generate system health report
-python cli.py health-check --export reports/health.json
-
-# Debug model predictions
-python cli.py debug predict \
-  --model models/waf_model.joblib \
-  --request data/test_request.json \
-  --explain
+# Initialize configuration
+python cli.py init-config --config-file config/waf_ai_config.json
 ```
 
 ## 📖 API Documentation
