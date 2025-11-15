@@ -775,15 +775,9 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 
 ```bash
 # Server Settings
-WAF_API_HOST=0.0.0.0                    # API server bind address
-WAF_API_PORT=8000                       # API server port
-WAF_API_DEBUG=false                     # Enable debug mode (dev only)
-WAF_API_WORKERS=4                       # Number of worker processes
-
-# Performance Settings
-WAF_API_MAX_REQUESTS=1000               # Max concurrent requests
-WAF_API_TIMEOUT=30                      # Request timeout (seconds)
-WAF_API_KEEPALIVE=65                    # Keep-alive timeout
+WAF_AI_HOST=0.0.0.0                    # API server bind address
+WAF_AI_PORT=8000                       # API server port
+WAF_AI_DEBUG=false                     # Enable debug mode (dev only)
 ```
 
 </details>
@@ -794,18 +788,19 @@ WAF_API_KEEPALIVE=65                    # Keep-alive timeout
 ```bash
 # Authentication
 WAF_JWT_SECRET=your-256-bit-secret-key   # JWT signing key (REQUIRED)
-WAF_JWT_EXPIRY_HOURS=24                 # Token expiration time
-WAF_ADMIN_PASSWORD=secure-admin-pass    # Default admin password
+WAF_ADMIN_PASSWORD=secure-admin-pass     # Default admin password
 
-# API Security
-WAF_API_KEY_EXPIRY_DAYS=365            # API key expiration
-WAF_RATE_LIMIT_REQUESTS=100            # Rate limit per minute
-WAF_CORS_ORIGINS=https://yourdomain.com # CORS allowed origins
+# HTTPS/TLS
+WAF_USE_HTTPS=false                      # Enable HTTPS (recommended for production)
+WAF_SSL_CERT_PATH=/path/to/cert.pem      # SSL certificate path
+WAF_SSL_KEY_PATH=/path/to/private.key    # SSL private key path
 
-# SSH Configuration
-WAF_SSH_KEY_PATH=~/.ssh/nginx_key      # Default SSH key path
-WAF_SSH_TIMEOUT=10                     # SSH connection timeout
-WAF_SSH_RETRIES=3                      # SSH retry attempts
+# Rate Limiting
+WAF_RATE_LIMIT_REQUESTS=100              # Rate limit per minute
+WAF_RATE_LIMIT_WINDOW=60                 # Rate limit window in seconds
+
+# CORS
+WAF_CORS_ORIGINS=https://yourdomain.com  # CORS allowed origins (comma-separated)
 ```
 
 </details>
@@ -815,18 +810,15 @@ WAF_SSH_RETRIES=3                      # SSH retry attempts
 
 ```bash
 # Model Configuration
-WAF_MODEL_PATH=models/waf_model.joblib  # Trained model location
-WAF_THREAT_THRESHOLD=-0.5               # Anomaly detection threshold
-WAF_CONFIDENCE_THRESHOLD=0.8            # Classification confidence min
+WAF_AI_MODEL_PATH=models/waf_model.joblib  # Trained model location
+WAF_AI_THREAT_THRESHOLD=-0.5               # Anomaly detection threshold
+WAF_AI_CONFIDENCE_THRESHOLD=0.8            # Classification confidence min
 
 # Training Parameters
-WAF_BATCH_SIZE=1000                     # Training batch size
-WAF_MAX_FEATURES=10000                  # Feature extraction limit
-WAF_VALIDATION_SPLIT=0.2                # Train/validation split
+WAF_AI_RETRAIN_INTERVAL=24                 # Retrain interval in hours
 
 # Real-time Processing
-WAF_PROCESSING_INTERVAL=1               # Seconds between processing cycles
-WAF_MAX_QUEUE_SIZE=50000               # Max queued requests for processing
+WAF_AI_PROCESSING_INTERVAL=1               # Seconds between processing cycles
 ```
 
 </details>
@@ -836,14 +828,11 @@ WAF_MAX_QUEUE_SIZE=50000               # Max queued requests for processing
 
 ```bash
 # Collection Settings
-WAF_COLLECTION_INTERVAL=1               # Collection frequency (seconds)
-WAF_MAX_REQUESTS=10000                  # Max requests to store
-WAF_COLLECTION_TIMEOUT=30               # Request timeout for collection
+WAF_AI_COLLECTION_INTERVAL=1               # Collection frequency (seconds)
+WAF_AI_MAX_REQUESTS=10000                  # Max requests to store
 
 # Data Retention
-WAF_DATA_RETENTION_DAYS=30              # Days to keep traffic data
-WAF_THREAT_RETENTION_DAYS=90            # Days to keep threat data
-WAF_LOG_RETENTION_DAYS=7                # Days to keep processing logs
+WAF_AI_CLEANUP_INTERVAL=60                 # Cleanup interval in minutes
 ```
 
 </details>
@@ -853,38 +842,19 @@ WAF_LOG_RETENTION_DAYS=7                # Days to keep processing logs
 
 ```bash
 # Rule Generation
-WAF_RULE_EXPIRY_HOURS=24               # Default rule expiration
-WAF_MAX_RULES_PER_NODE=100             # Max rules per nginx node
-WAF_RULE_PRIORITY_DEFAULT=100          # Default rule priority
+WAF_AI_RULE_EXPIRY=24                  # Default rule expiration in hours
+WAF_AI_MAX_RULES=100                   # Max rules per nginx node
+WAF_AI_OPTIMIZE_RULES=true             # Enable rule optimization
 
 # Deployment Settings
-WAF_DEPLOYMENT_TIMEOUT=60              # Deployment timeout (seconds)
-WAF_BACKUP_CONFIGS=true                # Backup before deployment
-WAF_TEST_CONFIGS=true                  # Test configs before deployment
-WAF_ROLLBACK_ON_ERROR=true             # Auto-rollback on failure
+WAF_AI_DEPLOY_TIMEOUT=30               # Deployment timeout (seconds)
+WAF_AI_NGINX_CONFIG_PATH=/etc/nginx/conf.d  # Default nginx config path
+WAF_AI_NGINX_RELOAD=sudo systemctl reload nginx  # Nginx reload command
 ```
 
 </details>
 
 <details>
-<summary><b>🗄️ Storage & Cache</b></summary>
-
-```bash
-# Redis Configuration
-REDIS_URL=redis://localhost:6379       # Redis connection URL
-REDIS_DB=0                             # Redis database number
-REDIS_PASSWORD=                        # Redis password (if required)
-REDIS_MAX_CONNECTIONS=50               # Connection pool size
-
-# File Storage
-WAF_DATA_DIR=data/                     # Data storage directory
-WAF_MODELS_DIR=models/                 # ML models directory
-WAF_LOGS_DIR=logs/                     # Log files directory
-WAF_BACKUP_DIR=backups/                # Configuration backups
-```
-
-</details>
-
 ### 📄 Configuration Files
 
 <details>
