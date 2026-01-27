@@ -33,7 +33,7 @@ pydantic==2.5.2
 PyJWT==2.8.0
 bcrypt==4.1.2
 cryptography
-python-multipart==0.0.6
+python-multipart==0.0.22
 
 # Rate limiting
 slowapi==0.1.9
