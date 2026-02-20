@@ -31,9 +31,9 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 - **Endpoint**: `POST /auth/login`
 - **Authentication**: None (public)
 - **Rate Limit**: 5 requests/minute
-- **Status**: ✅ **IMPLEMENTED**
+- **Status**: ⚠️ **COMMENTED OUT** - Not active in current codebase
 
-**Note**: This endpoint is currently commented out in the code. Use the default admin credentials (admin/admin123) for authentication through the UI or create users programmatically.
+**Note**: This endpoint is commented out in the source code. Authentication currently relies on creating users via `/auth/users` or using the default admin account.
 
 **Request Body**:
 ```json
@@ -277,11 +277,7 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 - **Endpoint**: `GET /api/stats`
 - **Authentication**: Viewer role required
 - **Rate Limit**: 20 requests/minute
-- **Status**: ❌ **NOT IMPLEMENTED** - Function body missing
-
-**Issues**:
-- Empty function body
-- No response structure defined
+- **Status**: ✅ **IMPLEMENTED**
 
 ---
 
@@ -422,11 +418,7 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 - **Endpoint**: `POST /api/processing/stop`
 - **Authentication**: Operator role required
 - **Rate Limit**: 5 requests/minute
-- **Status**: ❌ **NOT IMPLEMENTED** - Function body missing
-
-**Issues**:
-- Empty function body
-- No graceful shutdown logic
+- **Status**: ✅ **IMPLEMENTED**
 
 ---
 
@@ -534,28 +526,28 @@ The API uses JWT (JSON Web Tokens) for authentication with role-based access con
 
 | Service | Endpoints | Implemented | Partial | Missing | Total |
 |---------|-----------|-------------|---------|---------|-------|
-| Authentication | 4 | 4 | 0 | 0 | 4 |
+| Authentication | 4 | 2 | 0 | 2 | 4 |
 | Security | 3 | 1 | 2 | 0 | 3 |
 | Public | 3 | 3 | 0 | 0 | 3 |
-| System/Debug | 5 | 4 | 0 | 1 | 5 |
+| System/Debug | 5 | 5 | 0 | 0 | 5 |
 | Nodes | 3 | 3 | 0 | 0 | 3 |
 | ML Training | 1 | 1 | 0 | 0 | 1 |
 | Traffic | 2 | 2 | 0 | 0 | 2 |
-| Processing | 2 | 1 | 0 | 1 | 2 |
+| Processing | 2 | 2 | 0 | 0 | 2 |
 | Threats | 1 | 1 | 0 | 0 | 1 |
 | Rules | 2 | 1 | 1 | 0 | 2 |
 | Config | 1 | 0 | 1 | 0 | 1 |
 | **TOTAL** | **27** | **21** | **4** | **2** | **27** |
 
-**Implementation Rate**: 77.8% Complete, 14.8% Partial, 7.4% Missing
+**Implementation Rate**: 77.8% Complete, 14.8% Partial, 7.4% Missing (2 auth endpoints commented out)
 
 ---
 
 ## Next Steps
 
 1. **Complete missing implementations**:
-   - `/api/stats` endpoint
-   - `/api/processing/stop` endpoint
+   - `/auth/login` endpoint (currently commented out)
+   - `/auth/api-key` endpoint (currently commented out)
 
 2. **Fix partial implementations**:
    - Security middleware integration
