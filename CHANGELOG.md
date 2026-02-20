@@ -42,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive test suite
 - Security middleware with rate limiting
 - Error handling and circuit breaker patterns
-- Real-time WebSocket support for live monitoring
+- Real-time WebSocket support for live monitoring (not yet implemented)
 
 ### Features
 - **Traffic Collection**: Collects HTTP requests from nginx access logs or APIs
@@ -54,8 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known Issues
 - `/auth/login` endpoint currently commented out (use default credentials)
-- `/auth/api-key` endpoint not fully implemented
+- `/auth/api-key` endpoint currently commented out
 - Some partial implementations in security endpoints
+- WebSocket support listed as a feature is not yet implemented
 
 ---
 

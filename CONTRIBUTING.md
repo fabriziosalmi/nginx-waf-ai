@@ -70,12 +70,12 @@ This project adheres to the Contributor Covenant [Code of Conduct](CODE_OF_CONDU
 
 | Area | Description | Difficulty |
 |------|-------------|------------|
-| 🧠 **ML Models** | Improve threat detection algorithms | Advanced |
-| 🌐 **API Features** | Add new endpoints and functionality | Medium |
+| **ML Models** | Improve threat detection algorithms | Advanced |
+| **API Features** | Add new endpoints and functionality | Medium |
 | 📊 **Monitoring** | Enhanced dashboards and metrics | Medium |
-| 🐳 **DevOps** | CI/CD, Docker, deployment | Medium |
-| 📚 **Documentation** | Improve guides and examples | Beginner |
-| 🧪 **Testing** | Add test coverage | Beginner-Medium |
+| **DevOps** | CI/CD, Docker, deployment | Medium |
+| **Documentation** | Improve guides and examples | Beginner |
+| **Testing** | Add test coverage | Beginner-Medium |
 
 ### Types of Contributions
 
@@ -357,4 +357,4 @@ By contributing, you agree that your contributions will be licensed under the pr
 
 ---
 
-Thank you for contributing to Nginx WAF AI! Your efforts help make web applications more secure. 🛡️
+Thank you for contributing to Nginx WAF AI!
