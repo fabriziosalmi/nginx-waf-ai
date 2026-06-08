@@ -13,9 +13,6 @@ src_dir = current_dir / "src"
 sys.path.insert(0, str(current_dir))
 sys.path.insert(0, str(src_dir))
 
-# Set environment variable for module loading
-os.environ['PYTHONPATH'] = f"{current_dir}:{src_dir}"
-
 import uvicorn
 from src.main import app
 
