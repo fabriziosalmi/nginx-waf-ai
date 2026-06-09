@@ -1,5 +1,5 @@
 # Core web framework
-fastapi==0.104.1
+fastapi==0.109.1
 uvicorn[standard]==0.24.0
 
 # Machine Learning
