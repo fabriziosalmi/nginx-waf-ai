@@ -5,10 +5,21 @@ Minimal test configuration and fixtures for the Nginx WAF AI test suite.
 
 import pytest
 import os
+import sys
 import tempfile
 import json
+from pathlib import Path
 from typing import Dict, List, Any
 from unittest.mock import Mock, MagicMock
+
+# The suite imports the application as `src.*`, but the repo ships no package
+# metadata (no setup.py/pyproject), so nothing puts the repo root on sys.path and
+# collection died with `ModuleNotFoundError: No module named 'src'` for every such
+# module. conftest.py is imported before collection, so bootstrapping the path here
+# fixes CI and a bare `pytest` run alike, without depending on how pytest.ini parses.
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 # Basic test configuration
 @pytest.fixture
