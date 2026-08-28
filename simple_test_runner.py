@@ -41,7 +41,12 @@ def main():
     args = parser.parse_args()
     
     # Ensure we're in the project root
-    if not Path('src').exists() or not Path('tests').exists():
+    if not Path('src').exists() or not Path('src').is_dir():
+        print("❌ Please run from the project root directory")
+        print("Expected: src/ and tests/ directories")
+        sys.exit(1)
+    
+    if not Path('tests').exists() or not Path('tests').is_dir():
         print("❌ Please run from the project root directory")
         print("Expected: src/ and tests/ directories")
         sys.exit(1)
