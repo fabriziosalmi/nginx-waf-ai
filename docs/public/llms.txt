@@ -1,0 +1,29 @@
+# Nginx WAF AI
+
+> Machine learning system for nginx Web Application Firewall rule generation and deployment.
+
+## Overview
+
+Nginx WAF AI is an open-source security solution by Fabrizio Salmi (@fabriziosalmi). It analyzes HTTP traffic patterns, detects threats using machine learning (Isolation Forest and Random Forest), and automatically generates and deploys protective WAF rules for nginx clusters via SSH with rollback mechanisms. It features a FastAPI REST server, a single-page control panel, and Prometheus metrics.
+
+## Key Capabilities
+
+- **ML Threat Detection**: Isolation Forest (anomaly detection) and Random Forest (attack classification).
+- **Automated Rule Generation**: Generates native Nginx `deny` and `allow` rules based on ML threat scores.
+- **Fleet Sync**: Distributes WAF rules to Nginx nodes via SSH with automated syntax testing and rollback.
+- **FastAPI Engine**: High performance async backend with role-based access control and JWT tokens.
+- **Observability**: Prometheus `/metrics` endpoint, Grafana dashboards, Loki log integration.
+
+## Documentation Index
+
+- [Introduction](https://fabriziosalmi.github.io/nginx-waf-ai/guide/introduction): Architecture and dual-model overview.
+- [Quick Start](https://fabriziosalmi.github.io/nginx-waf-ai/guide/quickstart): Fast Docker Compose deployment.
+- [Production Guide](https://fabriziosalmi.github.io/nginx-waf-ai/guide/production): Production hardening, Nginx node configuration, and SSH access.
+- [REST API Reference](https://fabriziosalmi.github.io/nginx-waf-ai/guide/api): API endpoints, status, and payload specifications.
+- [Changelog](https://fabriziosalmi.github.io/nginx-waf-ai/guide/changelog): Version release notes.
+
+## Repository & Links
+
+- Repository: https://github.com/fabriziosalmi/nginx-waf-ai
+- License: MIT
+- Security Policy: https://fabriziosalmi.github.io/nginx-waf-ai/.well-known/security.txt
