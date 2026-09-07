@@ -65,3 +65,8 @@ data/*.json
 htmlcov/
 .tox/
 
+
+# nginx runtime output: docker-compose bind-mounts these directories as
+# /var/log/nginx, so they fill up on every local run. 12.5 MB of them were
+# committed. The directories themselves are kept, because the mount needs them.
+docker/nginx-node-*/logs/*.log
