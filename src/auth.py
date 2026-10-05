@@ -192,7 +192,12 @@ class AuthManager:
                 return TokenData(username=username, roles=roles, exp=exp)
         except jwt.ExpiredSignatureError:
             logger.warning("JWT token expired")
-        except jwt.JWTError as e:
+        # PyJWT non ha una JWTError (quella e' di python-jose): la classe base
+        # e' PyJWTError. Con "jwt.JWTError" ogni errore diverso dalla scadenza
+        # faceva uscire un AttributeError da questa funzione invece di tornare
+        # None, quindi un token manomesso diventava un errore interno e non un
+        # rifiuto. Verificato identico su PyJWT 2.8.0 e 2.15.1.
+        except jwt.PyJWTError as e:
             logger.warning(f"JWT verification failed: {e}")
         
         return None
