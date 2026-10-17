@@ -5,6 +5,9 @@ from unittest.mock import Mock, patch
 
 from src.traffic_collector import TrafficCollector, HttpRequest
 
+# Fast, isolated, no network: run by CI's `pytest -m unit`.
+pytestmark = pytest.mark.unit
+
 
 class TestTrafficCollector:
     

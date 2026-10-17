@@ -28,5 +28,5 @@ ENV WAF_AI_PORT=8000
 # Expose the API port
 EXPOSE 8000
 
-# Default command
-CMD ["python", "cli.py", "serve"]
+# Default command (the one docker-compose.yml runs too)
+CMD ["python", "run_server.py"]
