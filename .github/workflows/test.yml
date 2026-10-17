@@ -70,7 +70,9 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.xml
-        fail_ci_if_error: true
+        # Best effort: a tokenless upload is rate-limited by Codecov (HTTP 429),
+        # and a coverage upload should not decide whether the tests passed.
+        fail_ci_if_error: false
 
   docker-test:
     runs-on: ubuntu-latest
