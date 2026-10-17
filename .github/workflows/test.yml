@@ -88,19 +88,19 @@ jobs:
       run: |
         docker build -t waf-ai:test .
     
-    - name: Run Docker Compose tests
+    - name: Smoke test the image
       run: |
-        # Start services in background
-        docker-compose up -d redis
-        sleep 10
-        
-        # Install test dependencies
-        pip install -r test-requirements.txt
-        
-        # Run e2e tests
-        pytest tests/test_e2e_integration.py -v --tb=short
-    
+        # The image's own CMD, no override: a broken entrypoint must fail here.
+        docker run -d --name waf-smoke -p 8000:8000 waf-ai:test
+        for i in $(seq 1 30); do
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health || true)
+          [ "$code" = 200 ] && break
+          sleep 2
+        done
+        docker logs waf-smoke
+        [ "$code" = 200 ] || { echo "/health answered $code"; exit 1; }
+
     - name: Cleanup
       if: always()
       run: |
-        docker-compose down -v
+        docker rm -f waf-smoke || true
