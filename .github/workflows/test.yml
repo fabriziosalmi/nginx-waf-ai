@@ -60,7 +60,11 @@ jobs:
     
     - name: Test with pytest (integration tests)
       run: |
-        pytest tests/ -m "integration" --cov=src --cov-append --cov-report=xml
+        # Exit 5 means "no tests collected": the integration tests were written
+        # against an API src/ never had and could not even be imported, so they
+        # were removed until they are rewritten (see the linked issue). Any
+        # other non-zero exit still fails the job.
+        pytest tests/ -m "integration" --cov=src --cov-append --cov-report=xml || [ $? -eq 5 ]
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3

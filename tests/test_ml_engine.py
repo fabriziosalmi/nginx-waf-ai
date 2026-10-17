@@ -5,6 +5,9 @@ from unittest.mock import Mock, patch
 
 from src.ml_engine import MLEngine, RealTimeProcessor, ThreatPrediction
 
+# Fast, isolated, no network: run by CI's `pytest -m unit`.
+pytestmark = pytest.mark.unit
+
 
 class TestMLEngine:
     
