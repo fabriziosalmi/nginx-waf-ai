@@ -10,17 +10,18 @@ import sys
 import os
 from pathlib import Path
 
-# Add src to path
+# The modules under src/ import each other relatively, so they load as the
+# `src` package from the project root, as run_server.py does; with src/ itself
+# on the path every command failed with "attempted relative import".
 current_dir = Path(__file__).parent
-src_dir = current_dir / "src"
-sys.path.insert(0, str(src_dir))
+sys.path.insert(0, str(current_dir))
 
 try:
-    from traffic_collector import TrafficCollector
-    from ml_engine import MLEngine, RealTimeProcessor
-    from waf_rule_generator import WAFRuleGenerator, RuleOptimizer
-    from nginx_manager import NginxManager, NginxNode
-    from config import SystemConfig
+    from src.traffic_collector import TrafficCollector
+    from src.ml_engine import MLEngine, RealTimeProcessor
+    from src.waf_rule_generator import WAFRuleGenerator, RuleOptimizer
+    from src.nginx_manager import NginxManager, NginxNode
+    from src.config import SystemConfig
 except ImportError as e:
     print(f"Import error: {e}")
     print("Make sure you're running from the project root directory")
@@ -51,11 +52,12 @@ def serve(ctx, host, port, debug):
     from src.main import app
     
     config = ctx.obj['config']
+    # uvicorn has no `debug` argument; debug mode is its debug log level.
     uvicorn.run(
-        app, 
+        app,
         host=host or config.api_host,
         port=port or config.api_port,
-        debug=debug or config.api_debug
+        log_level="debug" if (debug or config.api_debug) else "info",
     )
 
 
