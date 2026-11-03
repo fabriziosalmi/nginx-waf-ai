@@ -149,7 +149,7 @@ export PYTEST_CURRENT_TEST="true"
 
 The project includes `.github/workflows/test.yml` for automated testing:
 
-- Runs on Python 3.9, 3.10, 3.11
+- Runs on Python 3.10, 3.11
 - Tests against Redis service
 - Generates coverage reports
 - Uploads to Codecov
