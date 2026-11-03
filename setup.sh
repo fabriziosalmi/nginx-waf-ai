@@ -15,7 +15,7 @@ echo "📦 Installing dependencies..."
 if command -v python3 &> /dev/null; then
     python3 -m pip install -r requirements.txt
 else
-    echo "❌ Python 3 is required. Please install Python 3.8+ and try again."
+    echo "❌ Python 3 is required. Please install Python 3.10+ and try again."
     exit 1
 fi
 

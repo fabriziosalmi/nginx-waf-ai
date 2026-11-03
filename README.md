@@ -4,7 +4,7 @@
 
 A machine learning system for nginx Web Application Firewall (WAF) rule generation and deployment.
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=flat&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -144,7 +144,7 @@ graph TB
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.10+
 - Docker and Docker Compose (for full stack deployment)
 - Redis (required for API server)
 - nginx nodes with SSH access (for rule deployment)
