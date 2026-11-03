@@ -17,7 +17,7 @@ requests==2.33.0
 httpx==0.25.2
 
 # SSH connectivity
-paramiko==3.4.0
+paramiko==5.0.0
 
 # Configuration parsing
 pyyaml==6.0.1
@@ -39,7 +39,7 @@ python-multipart==0.0.31
 slowapi==0.1.9
 
 # Development
-pytest==7.4.3
+pytest==9.0.3
 black==26.10.1
 flake8==6.1.0
 mypy==1.7.1
